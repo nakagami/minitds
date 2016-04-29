@@ -151,8 +151,48 @@ def _bint_to_2bytes(v):
     return v.to_bytes(2, byteorder='big')
 
 
-def prelogin_bytes(instance_name="MSSQLServer"):
+def _bint_to_4bytes(v):
+    return v.to_bytes(4, byteorder='big')
+
+
+def get_prelogin_bytes(instance_name="MSSQLServer"):
     instance_name = instance_name.encode('ascii') + b'\00'
+    POS = 26
+    # version
+    buf = b'\x00' + _bint_to_2bytes(POS) + _bint_to_2bytes(6)
+    POS += 6
+    # encryption
+    buf += b'\x01' + _bint_to_2bytes(POS) + _bint_to_2bytes(1)
+    POS += 1
+    # instance name
+    buf += b'\x02' + _bint_to_2bytes(POS) + _bint_to_2bytes(len(instance_name))
+    POS += len(instance_name)
+    # thread id
+    buf += b'\x03' + _bint_to_2bytes(POS) + _bint_to_2bytes(4)
+    POS += 4
+    # MARS
+    buf += b'\x04' + _bint_to_2bytes(POS) + _bint_to_2bytes(1)
+    POS += 1
+    # terminator
+    buf += b'\xff'
+
+    assert len(buf) == 26
+
+    buf += b'\x00' + bytes(list(VERSION)) + _bint_to_2byte(0)   # lib version
+    buf += b'\x02'  # not encryption
+    buf += instance_name
+    buf += _bint_to_4byte(0)    # TODO: thread id
+    buf += b'\x00'              # not use MARS
+
+    return buf
+
+
+def get_login_bytes(user, password, database, lcid):
+    app_name = "minitds"
+
+
+
+#-----------------------------------------------------------------------------
 
 
 class Cursor(object):
@@ -184,7 +224,7 @@ class Cursor(object):
 
     def execute(self, query, args=()):
         if not self.connection or not self.connection.is_connect():
-            raise ProgrammingError(u"08003:Lost connection")
+            raise ProgrammingError("Lost connection")
         self.description = []
         self._rows.clear()
         self.args = args
@@ -207,7 +247,7 @@ class Cursor(object):
 
     def fetchone(self):
         if not self.connection or not self.connection.is_connect():
-            raise OperationalError(u"08003:Lost connection")
+            raise OperationalError("Lost connection")
         if len(self._rows):
             return self._rows.popleft()
         return None
@@ -251,14 +291,14 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, port, timeout):
+    def __init__(self, user, password, database, host, port, lcid, timeout):
         self.user = user
         self.password = password
         self.database = database
         self.host = host
         self.port = port
+        self.lcid = lcid
         self.timeout = timeout
-        self.encoding = 'UTF8'
         self.autocommit = False
         self._packet_no = 0
         self._open()
@@ -332,5 +372,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, user, password, database, port=14333, timeout=None):
-    return Connection(user, password, database, host, port, timeout)
+def connect(host, user, password, database, port=14333, lcid=1033, timeout=None):
+    return Connection(user, password, database, host, port, lcid, timeout)
