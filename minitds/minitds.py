@@ -329,16 +329,7 @@ class Connection(object):
         while (n < len(b)):
             n += self.sock.send(b[n:])
 
-    def _open(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
-        if DEBUG:
-            DEBUG_OUTPUT("socket %s:%d" % (self.host, self.port))
-
-        if self.timeout is not None:
-            self.sock.settimeout(float(self.timeout))
-
-    def send_message(self, message_type, is_final, buf):
+    def _send_message(self, message_type, is_final, buf):
         self._write(
             bytes([message_type, 1 if is_final else 0]) +
             _bint_to_2bytes(len(buf)) +
@@ -347,6 +338,15 @@ class Connection(object):
             buf
         )
         self._packet_no = (self._packet_no + 1) % 256
+
+    def _open(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.host, self.port))
+        if DEBUG:
+            DEBUG_OUTPUT("socket %s:%d" % (self.host, self.port))
+
+        if self.timeout is not None:
+            self.sock.settimeout(float(self.timeout))
 
     def cursor(self):
         return Cursor(self)
