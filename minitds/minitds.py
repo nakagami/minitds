@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 ##############################################################################
 #The MIT License (MIT)
 #
@@ -230,8 +231,8 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     buf += _int_to_4bytes(min_offset)
     buf += _int_to_4bytes(lcid)
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2byte(host)
-    pos += len(
+    buf += _int_to_2byte(len(host))
+    pos += len(host)
 
 
 
