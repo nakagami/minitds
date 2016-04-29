@@ -37,9 +37,7 @@ apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
 
-
 DEBUG = True
-
 
 def DEBUG_OUTPUT(s):
     print(s, end=' \n', file=sys.stderr)
@@ -132,6 +130,29 @@ class DataError(DatabaseError):
 class NotSupportedError(DatabaseError):
     def __init__(self):
         DatabaseError.__init__(self, 'NotSupportedError')
+
+#-----------------------------------------------------------------------------
+# Message type
+TDS_SQL_BATCH = 1
+TDS_RPC = 3
+TDS_TABULAR_RESULT = 4
+TDS_ATTENTION_SIGNALE = 6
+TDS_BULK_LOAD_DATA = 7
+TDS_TRANSACTION_MANAGER_REQUEST = 14
+TDS_LOGIN = 16
+TDS_PRELOGIN = 18
+
+
+def _bytes_to_bint(b):
+    return int.from_bytes(b, byteorder='big')
+
+
+def _bint_to_2bytes(v):
+    return v.to_bytes(2, byteorder='big')
+
+
+def prelogin_bytes(instance_name="MSSQLServer"):
+    instance_name = instance_name.encode('ascii') + b'\00'
 
 
 class Cursor(object):
@@ -239,6 +260,7 @@ class Connection(object):
         self.timeout = timeout
         self.encoding = 'UTF8'
         self.autocommit = False
+        self._packet_no = 0
         self._open()
 
     def __enter__(self):
@@ -246,6 +268,24 @@ class Connection(object):
 
     def __exit__(self, exc, value, traceback):
         self.close()
+
+    def _read(self, ln):
+        if not self.sock:
+            raise OperationalError("Lost connection")
+        r = b''
+        while len(r) < ln:
+            b = self.sock.recv(ln-len(r))
+            if not b:
+                raise OperationalError("Can't recv packets")
+            r += b
+        return r
+
+    def _write(self, b):
+        if not self.sock:
+            raise OperationalError("Lost connection")
+        n = 0
+        while (n < len(b)):
+            n += self.sock.send(b[n:])
 
     def _open(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -255,6 +295,16 @@ class Connection(object):
 
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
+
+    def send_message(self, message_type, is_final, buf):
+        self._write(
+            bytes([message_type, 1 if is_final else 0]) +
+            _bint_to_2bytes(len(buf)) +
+            _bint_to_2bytes(0) +
+            bytes([self._packet_no]) +
+            buf
+        )
+        self._packet_no = (self._packet_no + 1) % 256
 
     def cursor(self):
         return Cursor(self)
@@ -284,4 +334,3 @@ class Connection(object):
 
 def connect(host, user, password, database, port=14333, timeout=None):
     return Connection(user, password, database, host, port, timeout)
-
