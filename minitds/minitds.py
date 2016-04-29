@@ -202,12 +202,20 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     client_name = socket.gethostname()[:128]
     app_name = "minitds"
     lib_name = "minitds"
-    language = ""
-    pid = os.getpid()
+    language = ""                       # server default
     TDS_VERSION = b'\x74\x00\x00\x04'   # TDS 7.4
 
 
     packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database)) * 2
+
+    buf = b''
+    buf += _int_to_4bytes(packet_size)
+    buf += TDS_VERSION
+    buf += _int_to_4bytes(blocksize)
+    buf += _bin_version
+    buf += _int_to_4bytes(os.getpid())
+    buf += _int_to_4bytes(0)            # connection id
+
 
 
 
