@@ -142,6 +142,7 @@ TDS_TRANSACTION_MANAGER_REQUEST = 14
 TDS_LOGIN = 16
 TDS_PRELOGIN = 18
 
+bin_version = b'\x00' + bytes(list(VERSION))
 
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
@@ -157,28 +158,28 @@ def _bint_to_4bytes(v):
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
     instance_name = instance_name.encode('ascii') + b'\00'
-    POS = 26
+    pos = 26
     # version
     buf = b'\x00' + _bint_to_2bytes(POS) + _bint_to_2bytes(6)
-    POS += 6
+    pos += 6
     # encryption
-    buf += b'\x01' + _bint_to_2bytes(POS) + _bint_to_2bytes(1)
-    POS += 1
+    buf += b'\x01' + _bint_to_2bytes(pos) + _bint_to_2bytes(1)
+    pos += 1
     # instance name
-    buf += b'\x02' + _bint_to_2bytes(POS) + _bint_to_2bytes(len(instance_name))
-    POS += len(instance_name)
+    buf += b'\x02' + _bint_to_2bytes(pos) + _bint_to_2bytes(len(instance_name))
+    pos += len(instance_name)
     # thread id
-    buf += b'\x03' + _bint_to_2bytes(POS) + _bint_to_2bytes(4)
-    POS += 4
+    buf += b'\x03' + _bint_to_2bytes(pos) + _bint_to_2bytes(4)
+    pos += 4
     # MARS
-    buf += b'\x04' + _bint_to_2bytes(POS) + _bint_to_2bytes(1)
-    POS += 1
+    buf += b'\x04' + _bint_to_2bytes(pos) + _bint_to_2bytes(1)
+    pos += 1
     # terminator
     buf += b'\xff'
 
     assert len(buf) == 26
 
-    buf += b'\x00' + bytes(list(VERSION)) + _bint_to_2byte(0)   # lib version
+    buf += bin_version + _bint_to_2byte(0)
     buf += b'\x02'  # not encryption
     buf += instance_name
     buf += _bint_to_4byte(0)    # TODO: thread id
@@ -189,6 +190,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
 
 def get_login_bytes(user, password, database, lcid):
     app_name = "minitds"
+    pos = 94
 
 
 
@@ -372,5 +374,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, user, password, database, port=14333, lcid=1033, timeout=None):
+def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None):
     return Connection(user, password, database, host, port, lcid, timeout)
