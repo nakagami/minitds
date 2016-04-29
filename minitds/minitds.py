@@ -33,6 +33,7 @@ import datetime
 import time
 import collections
 import binascii
+import uuid
 
 VERSION = (0, 0, 1)
 __version__ = '%s.%s.%s' % VERSION
@@ -228,12 +229,60 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
         0,                  # TypeFlags
         0x80,               # OptionFlags3 UNKNOWN_COLLATION_HANDLING
     ])
-    buf += _int_to_4bytes(min_offset)
+    buf += _int_to_4bytes(min_offset)   # time zone offset
     buf += _int_to_4bytes(lcid)
+
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2byte(len(host))
+    buf += _int_to_2byte(len(client_name)) * 2
+    pos += len(client_name)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(user)) * 2
+    pos += len(user)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(password)) * 2
+    pos += len(password)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(app_name)) * 2
+    pos += len(app_name)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(host)) * 2
     pos += len(host)
 
+    # reserved
+    buf += _int_to_2byte(0)
+    buf += _int_to_2byte(0)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(lib_name)) * 2
+    pos += len(lib_name)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(language)) * 2
+    pos += len(language)
+
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(len(database)) * 2
+    pos += len(database)
+
+    # Client ID
+    buf += uuid.uuid4()[:6]
+
+    # auth packet
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(0)
+
+    # db file
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(0)
+
+    # change password
+    buf += _int_to_2byte(pos)
+    buf += _int_to_2byte(0)
+    buf += _int_to_4byte(0)
 
 
 
