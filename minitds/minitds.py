@@ -25,6 +25,7 @@
 
 import sys
 import os
+import threading
 import socket
 import decimal
 import datetime
@@ -157,6 +158,10 @@ def _bint_to_4bytes(v):
     return v.to_bytes(4, byteorder='big')
 
 
+def _int_to_2bytes(v):
+    return v.to_bytes(2, byteorder='little')
+
+
 def _int_to_4bytes(v):
     return v.to_bytes(4, byteorder='little')
 
@@ -191,7 +196,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     buf += _bin_version + _bint_to_2byte(0)
     buf += b'\x02'  # not encryption
     buf += instance_name
-    buf += _bint_to_4byte(0)    # TODO: thread id
+    buf += _bint_to_4byte(threading.get_ident())
     buf += b'\x00'              # not use MARS
 
     return buf
@@ -204,7 +209,8 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     lib_name = "minitds"
     language = ""                       # server default
     TDS_VERSION = b'\x74\x00\x00\x04'   # TDS 7.4
-
+    now = time.time()
+    min_offset = (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
 
     packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database)) * 2
 
@@ -215,6 +221,17 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     buf += _bin_version
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
+    buf += bytes([
+        0x20 | 0x40 | 0x80, # OptionFlags1 USE_DB_ON|INIT_DB_FATAL|SET_LANG_ON 
+        0x02,               # OptionFlags2 ODBC_ON
+        0,                  # TypeFlags
+        0x80,               # OptionFlags3 UNKNOWN_COLLATION_HANDLING
+    ])
+    buf += _int_to_4bytes(min_offset)
+    buf += _int_to_4bytes(lcid)
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2byte(host)
+    pos += len(
 
 
 
