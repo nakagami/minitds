@@ -24,6 +24,7 @@
 # https://github.com/nakagami/minitds/
 
 import sys
+import os
 import socket
 import decimal
 import datetime
@@ -142,7 +143,7 @@ TDS_TRANSACTION_MANAGER_REQUEST = 14
 TDS_LOGIN = 16
 TDS_PRELOGIN = 18
 
-bin_version = b'\x00' + bytes(list(VERSION))
+_bin_version = b'\x00' + bytes(list(VERSION))
 
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
@@ -154,6 +155,14 @@ def _bint_to_2bytes(v):
 
 def _bint_to_4bytes(v):
     return v.to_bytes(4, byteorder='big')
+
+
+def _int_to_4bytes(v):
+    return v.to_bytes(4, byteorder='little')
+
+
+def _str_to_bytes(s):
+    return s.encode('utf_16_le')
 
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
@@ -179,7 +188,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
 
     assert len(buf) == 26
 
-    buf += bin_version + _bint_to_2byte(0)
+    buf += _bin_version + _bint_to_2byte(0)
     buf += b'\x02'  # not encryption
     buf += instance_name
     buf += _bint_to_4byte(0)    # TODO: thread id
@@ -188,9 +197,17 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     return buf
 
 
-def get_login_bytes(user, password, database, lcid):
-    app_name = "minitds"
+def get_login_bytes(host, user, password, database, lcid, blocksize):
     pos = 94
+    client_name = socket.gethostname()[:128]
+    app_name = "minitds"
+    lib_name = "minitds"
+    language = ""
+    pid = os.getpid()
+    TDS_VERSION = b'\x74\x00\x00\x04'   # TDS 7.4
+
+
+    packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database)) * 2
 
 
 
@@ -293,7 +310,7 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, port, lcid, timeout):
+    def __init__(self, user, password, database, host, port, lcid, timeout, blocksize):
         self.user = user
         self.password = password
         self.database = database
@@ -301,6 +318,7 @@ class Connection(object):
         self.port = port
         self.lcid = lcid
         self.timeout = timeout
+        self.blocksize = blocksize
         self.autocommit = False
         self._packet_no = 0
         self._open()
@@ -374,5 +392,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None):
-    return Connection(user, password, database, host, port, lcid, timeout)
+def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None, blocksize=4096):
+    return Connection(user, password, database, host, port, lcid, timeout, blocksize)
