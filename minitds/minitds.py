@@ -210,11 +210,12 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     app_name = "minitds"
     lib_name = "minitds"
     language = ""                       # server default
+    db_file = ""
     TDS_VERSION = b'\x74\x00\x00\x04'   # TDS 7.4
     now = time.time()
     min_offset = (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
 
-    packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database)) * 2
+    packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database) + len(db_file)) * 2
 
     buf = b''
     buf += _int_to_4bytes(packet_size)
@@ -269,7 +270,7 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     pos += len(database)
 
     # Client ID
-    buf += uuid.uuid4()[:6]
+    buf += uuid.getnode().to_bytes(6, 'big')
 
     # auth packet
     buf += _int_to_2byte(pos)
@@ -277,13 +278,26 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
 
     # db file
     buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(0)
+    buf += _int_to_2byte(len(db_file)) * 2
+    pos += len(db_file)
 
-    # change password
+    # new password
     buf += _int_to_2byte(pos)
     buf += _int_to_2byte(0)
+    # sspi
     buf += _int_to_4byte(0)
 
+    buf += _str_to_bytes(client_name)
+    buf += _str_to_bytes(user)
+    buf += _str_to_bytes(password)
+    buf += _str_to_bytes(app_name)
+    buf += _str_to_bytes(lib_name)
+    buf += _str_to_bytes(language)
+    buf += _str_to_bytes(database)
+    buf += _str_to_bytes(db_file)
+    buf += _str_to_bytes('')                # new password
+
+    return buf
 
 
 #-----------------------------------------------------------------------------
