@@ -146,6 +146,10 @@ TDS_TRANSACTION_MANAGER_REQUEST = 14
 TDS_LOGIN = 16
 TDS_PRELOGIN = 18
 
+TM_BEGIN_XACT = 5
+TM_COMMIT_XACT = 7
+TM_ROLLBACK_XACT = 8
+
 _bin_version = b'\x00' + bytes(list(VERSION))
 
 def _bytes_to_bint(b):
@@ -310,8 +314,8 @@ def get_begin_bytes(isolation_level, trans=0):
     buf += b'\x02'
     buf += _int_to_8bytes(trans)
     buf += _int_to_4bytes(1)        # request count
-    buf += b'\x05'                  # TM_BEGIN_XACT
-    buf += (byte)isolation_level
+    buf += bytes([TM_BEGIN_XACT])
+    buf += bytes([isolation_level])
     buf += b'\00'
 
     return buf
