@@ -316,6 +316,16 @@ def get_begin_bytes(isolation_level, trans=0):
 
     return buf
 
+def get_query_bytes(query, trans=0):
+    buf = _int_to_4bytes(16)
+    buf += _int_to_4bytes(12)
+    buf += b'\x02'
+    buf += _int_to_8bytes(trans)
+    buf += _int_to_4bytes(1)        # request count
+    buf += _str_to_bytes(query)
+
+    return buf
+
 #-----------------------------------------------------------------------------
 
 
