@@ -304,7 +304,7 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     return buf
 
 
-def get_begin_tran_bytes(isolation_level, trans=0):
+def get_begin_bytes(isolation_level, trans=0):
     buf = _int_to_4bytes(16)
     buf += _int_to_4bytes(12)
     buf += b'\x02'
