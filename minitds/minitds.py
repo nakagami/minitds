@@ -168,6 +168,10 @@ def _int_to_4bytes(v):
     return v.to_bytes(4, byteorder='little')
 
 
+def _int_to_8bytes(v):
+    return v.to_bytes(8, byteorder='little')
+
+
 def _str_to_bytes(s):
     return s.encode('utf_16_le')
 
@@ -198,7 +202,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     buf += _bin_version + _bint_to_2byte(0)
     buf += b'\x02'  # not encryption
     buf += instance_name
-    buf += _bint_to_4byte(threading.get_ident())
+    buf += _bint_to_4bytes(threading.get_ident())
     buf += b'\x00'              # not use MARS
 
     return buf
@@ -234,62 +238,62 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     buf += _int_to_4bytes(lcid)
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2byte(len(client_name)) * 2
+    buf += _int_to_2bytes(len(client_name)) * 2
     pos += len(client_name)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(user)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(user)) * 2
     pos += len(user)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(password)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(password)) * 2
     pos += len(password)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(app_name)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(app_name)) * 2
     pos += len(app_name)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(host)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(host)) * 2
     pos += len(host)
 
     # reserved
-    buf += _int_to_2byte(0)
-    buf += _int_to_2byte(0)
+    buf += _int_to_2bytes(0)
+    buf += _int_to_2bytes(0)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(lib_name)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(lib_name)) * 2
     pos += len(lib_name)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(language)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(language)) * 2
     pos += len(language)
 
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(database)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(database)) * 2
     pos += len(database)
 
     # Client ID
     buf += uuid.getnode().to_bytes(6, 'big')
 
     # auth packet
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(0)
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(0)
 
     # db file
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(len(db_file)) * 2
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(len(db_file)) * 2
     pos += len(db_file)
 
     # new password
-    buf += _int_to_2byte(pos)
-    buf += _int_to_2byte(0)
+    buf += _int_to_2bytes(pos)
+    buf += _int_to_2bytes(0)
     # sspi
-    buf += _int_to_4byte(0)
+    buf += _int_to_4bytes(0)
 
     buf += _str_to_bytes(client_name)
     buf += _str_to_bytes(user)
-    buf += _str_to_bytes(password)
+    buf += bytes([((c << 4) & 0xff | (c >> 4)) ^ 0xa5 for c in _str_to_bytes(password]))
     buf += _str_to_bytes(app_name)
     buf += _str_to_bytes(lib_name)
     buf += _str_to_bytes(language)
@@ -299,6 +303,18 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
 
     return buf
 
+
+def get_begin_tran_bytes(isolation_level, trans=0):
+    buf = _int_to_4bytes(16)
+    buf += _int_to_4bytes(12)
+    buf += b'\x02'
+    buf += _int_to_8bytes(trans)
+    buf += _int_to_4bytes(1)        # request count
+    buf += b'\x05'                  # TM_BEGIN_XACT
+    buf += (byte)isolation_level
+    buf += b'\00'
+
+    return buf
 
 #-----------------------------------------------------------------------------
 
