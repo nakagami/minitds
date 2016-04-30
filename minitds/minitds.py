@@ -297,7 +297,7 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
 
     buf += _str_to_bytes(client_name)
     buf += _str_to_bytes(user)
-    buf += bytes([((c << 4) & 0xff | (c >> 4)) ^ 0xa5 for c in _str_to_bytes(password]))
+    buf += bytes([((c << 4) & 0xff | (c >> 4)) ^ 0xa5 for c in _str_to_bytes(password)])
     buf += _str_to_bytes(app_name)
     buf += _str_to_bytes(lib_name)
     buf += _str_to_bytes(language)
@@ -308,27 +308,28 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     return buf
 
 
-def get_begin_bytes(isolation_level, trans=0):
-    buf = _int_to_4bytes(16)
-    buf += _int_to_4bytes(12)
+def get_trans_request_bytes(req, isolation_level, trans):
+    buf = _int_to_4bytes(22)
+    buf += _int_to_4bytes(18)
     buf += b'\x02'
     buf += _int_to_8bytes(trans)
     buf += _int_to_4bytes(1)        # request count
-    buf += bytes([TM_BEGIN_XACT])
+    buf += bytes([req])
     buf += bytes([isolation_level])
     buf += b'\00'
-
     return buf
 
-def get_query_bytes(query, trans=0):
-    buf = _int_to_4bytes(16)
-    buf += _int_to_4bytes(12)
+
+def get_query_bytes(query, trans):
+    buf = _int_to_4bytes(22)
+    buf += _int_to_4bytes(18)
     buf += b'\x02'
     buf += _int_to_8bytes(trans)
     buf += _int_to_4bytes(1)        # request count
     buf += _str_to_bytes(query)
 
     return buf
+
 
 #-----------------------------------------------------------------------------
 
@@ -484,6 +485,9 @@ class Connection(object):
 
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
+
+    def is_connect(self):
+            return bool(self.sock)
 
     def cursor(self):
         return Cursor(self)
