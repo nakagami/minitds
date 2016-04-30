@@ -233,7 +233,7 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
     buf += bytes([
-        0x20 | 0x40 | 0x80, # OptionFlags1 USE_DB_ON|INIT_DB_FATAL|SET_LANG_ON 
+        0x20 | 0x40 | 0x80, # OptionFlags1 USE_DB_ON|INIT_DB_FATAL|SET_LANG_ON
         0x02,               # OptionFlags2 ODBC_ON
         0,                  # TypeFlags
         0x80,               # OptionFlags3 UNKNOWN_COLLATION_HANDLING
@@ -466,6 +466,15 @@ class Connection(object):
         n = 0
         while (n < len(b)):
             n += self.sock.send(b[n:])
+
+    def _read_response_packet(self):
+        b = self._read(8)
+        t = b[0]
+        status = b[1]
+        size = _bytes_to_bint(b[2:4])
+        spid = _bytes_to_bint(b[4:6])
+
+        return t, status, spid, self._read(size)
 
     def _send_message(self, message_type, is_final, buf):
         self._write(
