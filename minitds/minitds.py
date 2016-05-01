@@ -323,7 +323,7 @@ def get_trans_request_bytes(req, isolation_level, trans):
 def get_query_bytes(query, trans):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
-    buf += b'\x02'
+    buf += _int_to_2bytes(2)
     buf += _int_to_8bytes(trans)
     buf += _int_to_4bytes(1)        # request count
     buf += _str_to_bytes(query)
