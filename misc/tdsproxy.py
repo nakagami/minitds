@@ -57,7 +57,7 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
         client_body = client_sock.recv(ln)
         server_sock.send(client_head)
         server_sock.send(client_body)
-        print("<<%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], len(client_body), status, spid, binascii.b2a_hex(client_body).decode('ascii')))
+        print("<<%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_body).decode('ascii')))
 
         server_head = server_sock.recv(8)
         t = server_head[0]
