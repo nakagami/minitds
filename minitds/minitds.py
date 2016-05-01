@@ -212,7 +212,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     return buf
 
 
-def get_login_bytes(host, user, password, database, lcid, blocksize):
+def get_login_bytes(host, user, password, database, lcid):
     pos = 94
     client_name = socket.gethostname()[:128]
     app_name = "minitds"
@@ -228,7 +228,7 @@ def get_login_bytes(host, user, password, database, lcid, blocksize):
     buf = b''
     buf += _int_to_4bytes(packet_size)
     buf += TDS_VERSION
-    buf += _int_to_4bytes(blocksize)
+    buf += _int_to_4bytes(4096)
     buf += _bin_version
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
@@ -430,7 +430,7 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, port, lcid, timeout, blocksize):
+    def __init__(self, user, password, database, host, port, lcid, timeout):
         self.user = user
         self.password = password
         self.database = database
@@ -438,7 +438,6 @@ class Connection(object):
         self.port = port
         self.lcid = lcid
         self.timeout = timeout
-        self.blocksize = blocksize
         self.autocommit = False
         self._packet_no = 0
         self._open()
@@ -524,5 +523,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None, blocksize=4096):
-    return Connection(user, password, database, host, port, lcid, timeout, blocksize)
+def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None):
+    return Connection(user, password, database, host, port, lcid, timeout)
