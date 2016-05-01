@@ -528,5 +528,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, user, password, database='', port=14333, lcid=1033, timeout=None):
+def connect(host, database, user, password, port=14333, lcid=1033, timeout=None):
     return Connection(user, password, database, host, port, lcid, timeout)
