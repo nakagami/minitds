@@ -219,7 +219,6 @@ def get_login_bytes(host, user, password, database, lcid):
     lib_name = "minitds"
     language = ""                       # server default
     db_file = ""
-    TDS_VERSION = b'\x74\x00\x00\x04'   # TDS 7.4
     now = time.time()
     min_offset = (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
 
@@ -227,7 +226,7 @@ def get_login_bytes(host, user, password, database, lcid):
 
     buf = b''
     buf += _int_to_4bytes(packet_size)
-    buf += TDS_VERSION
+    buf += b'\x04\x00\x00\x74'   # TDS 7.4
     buf += _int_to_4bytes(4096)
     buf += _bin_version
     buf += _int_to_4bytes(os.getpid())
@@ -242,52 +241,52 @@ def get_login_bytes(host, user, password, database, lcid):
     buf += _int_to_4bytes(lcid)
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(client_name)) * 2
-    pos += len(client_name)
+    buf += _int_to_2bytes(len(client_name))
+    pos += len(client_name) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(user)) * 2
-    pos += len(user)
+    buf += _int_to_2bytes(len(user))
+    pos += len(user) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(password)) * 2
-    pos += len(password)
+    buf += _int_to_2bytes(len(password))
+    pos += len(password) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(app_name)) * 2
-    pos += len(app_name)
+    buf += _int_to_2bytes(len(app_name))
+    pos += len(app_name) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(host)) * 2
-    pos += len(host)
+    buf += _int_to_2bytes(len(host))
+    pos += len(host) * 2
 
     # reserved
     buf += _int_to_2bytes(0)
     buf += _int_to_2bytes(0)
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(lib_name)) * 2
-    pos += len(lib_name)
+    buf += _int_to_2bytes(len(lib_name))
+    pos += len(lib_name) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(language)) * 2
-    pos += len(language)
+    buf += _int_to_2bytes(len(language))
+    pos += len(language) * 2
 
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(database)) * 2
-    pos += len(database)
+    buf += _int_to_2bytes(len(database))
+    pos += len(database) * 2
 
     # Client ID
     buf += uuid.getnode().to_bytes(6, 'big')
 
-    # auth packet
+    # authenticate
     buf += _int_to_2bytes(pos)
     buf += _int_to_2bytes(0)
 
     # db file
     buf += _int_to_2bytes(pos)
-    buf += _int_to_2bytes(len(db_file)) * 2
-    pos += len(db_file)
+    buf += _int_to_2bytes(len(db_file))
+    pos += len(db_file) * 2
 
     # new password
     buf += _int_to_2bytes(pos)
@@ -299,6 +298,7 @@ def get_login_bytes(host, user, password, database, lcid):
     buf += _str_to_bytes(user)
     buf += bytes([((c << 4) & 0xff | (c >> 4)) ^ 0xa5 for c in _str_to_bytes(password)])
     buf += _str_to_bytes(app_name)
+    buf += _str_to_bytes(host)
     buf += _str_to_bytes(lib_name)
     buf += _str_to_bytes(language)
     buf += _str_to_bytes(database)
