@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 ##############################################################################
-#The MIT License (MIT)
+# The MIT License (MIT)
 #
-#Copyright (c) 2016 Hajime Nakagami
+# Copyright (c) 2016 Hajime Nakagami
 #
-#Permission is hereby granted, free of charge, to any person obtaining a copy
-#of this software and associated documentation files (the "Software"), to deal
-#in the Software without restriction, including without limitation the rights
-#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#copies of the Software, and to permit persons to whom the Software is
-#furnished to do so, subject to the following conditions:
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 #
-#The above copyright notice and this permission notice shall be included in all
-#copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 #
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-#SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 ##############################################################################
 # https://github.com/nakagami/minitds/
 
@@ -43,10 +43,11 @@ paramstyle = 'format'
 
 DEBUG = True
 
+
 def DEBUG_OUTPUT(s):
     print(s, end=' \n', file=sys.stderr)
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 Date = datetime.date
 Time = datetime.time
 TimeDelta = datetime.timedelta
@@ -135,7 +136,7 @@ class NotSupportedError(DatabaseError):
     def __init__(self):
         DatabaseError.__init__(self, 'NotSupportedError')
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Message type
 TDS_SQL_BATCH = 1
 TDS_RPC = 3
@@ -151,6 +152,7 @@ TM_COMMIT_XACT = 7
 TM_ROLLBACK_XACT = 8
 
 _bin_version = b'\x00' + bytes(list(VERSION))
+
 
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
@@ -232,10 +234,10 @@ def get_login_bytes(host, user, password, database, lcid):
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
     buf += bytes([
-        0x20 | 0x40 | 0x80, # OptionFlags1 USE_DB_ON|INIT_DB_FATAL|SET_LANG_ON
-        0x02,               # OptionFlags2 ODBC_ON
-        0,                  # TypeFlags
-        0x80,               # OptionFlags3 UNKNOWN_COLLATION_HANDLING
+        0x20 | 0x40 | 0x80,  # OptionFlags1 USE_DB_ON|INIT_DB_FATAL|SET_LANG_ON
+        0x02,                # OptionFlags2 ODBC_ON
+        0,                   # TypeFlags
+        0x80,                # OptionFlags3 UNKNOWN_COLLATION_HANDLING
     ])
     buf += _int_to_4bytes(min_offset)   # time zone offset
     buf += _int_to_4bytes(lcid)
@@ -331,7 +333,7 @@ def get_query_bytes(query, trans):
     return buf
 
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class Cursor(object):
