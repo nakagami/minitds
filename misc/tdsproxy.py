@@ -38,6 +38,14 @@ TDS_NAME = {
 }
 
 
+def asc_dump(s):
+    r = ''
+    for c in s:
+        r += chr(c) if (c >= 32 and c < 128) else '.'
+    if r:
+        print('\t[' + r + ']')
+
+
 def proxy_wire(server_name, server_port, listen_host, listen_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((listen_host, listen_port))
@@ -68,6 +76,7 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
         client_sock.send(server_head)
         client_sock.send(server_body)
         print(">>%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(server_body), spid, binascii.b2a_hex(server_body).decode('ascii')))
+        print(asc_dump(server_body))
 
 
 if __name__ == '__main__':
