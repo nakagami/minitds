@@ -439,8 +439,13 @@ class Connection(object):
         self.lcid = lcid
         self.timeout = timeout
         self.autocommit = False
-        self._packet_no = 0
+        self._packet_id = 0
         self._open()
+
+        self._send_message(TDS_PRELOGIN, True, get_prelogin_bytes())
+        self._read_response_packet()
+        self._send_message(TDS_LOGIN, True, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
+        self._read_response_packet()
 
     def __enter__(self):
         return self
@@ -478,12 +483,12 @@ class Connection(object):
     def _send_message(self, message_type, is_final, buf):
         self._write(
             bytes([message_type, 1 if is_final else 0]) +
-            _bint_to_2bytes(len(buf)) +
+            _bint_to_2bytes(8 + len(buf)) +
             _bint_to_2bytes(0) +
-            bytes([self._packet_no]) +
+            bytes([self._packet_id, 0]) +
             buf
         )
-        self._packet_no = (self._packet_no + 1) % 256
+        self._packet_id = (self._packet_id + 1) % 256
 
     def _open(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
