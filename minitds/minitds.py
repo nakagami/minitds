@@ -475,10 +475,10 @@ class Connection(object):
         b = self._read(8)
         t = b[0]
         status = b[1]
-        size = _bytes_to_bint(b[2:4])
+        ln = _bytes_to_bint(b[2:4]) - 8
         spid = _bytes_to_bint(b[4:6])
 
-        return t, status, spid, self._read(size)
+        return t, status, spid, self._read(ln)
 
     def _send_message(self, message_type, is_final, buf):
         self._write(
