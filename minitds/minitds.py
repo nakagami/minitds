@@ -311,10 +311,10 @@ def get_login_bytes(host, user, password, database, lcid):
 def get_trans_request_bytes(req, isolation_level, trans):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
-    buf += b'\x02'
+    buf += _int_to_2bytes(2)
     buf += _int_to_8bytes(trans)
     buf += _int_to_4bytes(1)        # request count
-    buf += bytes([req])
+    buf += _int_to_2bytes(req)
     buf += bytes([isolation_level])
     buf += b'\00'
     return buf
@@ -445,6 +445,8 @@ class Connection(object):
         self._send_message(TDS_PRELOGIN, True, get_prelogin_bytes())
         self._read_response_packet()
         self._send_message(TDS_LOGIN, True, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
+        self._read_response_packet()
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, 0))
         self._read_response_packet()
 
     def __enter__(self):
