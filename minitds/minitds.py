@@ -375,7 +375,7 @@ class Cursor(object):
             query = query % escaped_args
             query = query.replace(u'%%', u'%')
         self.query = query
-        self.connection.execute(query, self)
+        self.connection.execute(query)
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
@@ -505,8 +505,9 @@ class Connection(object):
     def cursor(self):
         return Cursor(self)
 
-    def execute(self, query, obj=None):
-        pass
+    def execute(self, query):
+        self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, 0))
+        self._read_response_packet()
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit

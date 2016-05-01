@@ -66,6 +66,8 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
         server_sock.send(client_head)
         server_sock.send(client_body)
         print("<<%s:%d, len=%d spid=%d %s data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_head[6:]).decode('ascii'), binascii.b2a_hex(client_body).decode('ascii')))
+        if TDS_NAME[t] == 'TDS_SQL_BATCH':
+            asc_dump(client_body)
 
         server_head = server_sock.recv(8)
         t = server_head[0]
