@@ -184,7 +184,7 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
     # version
-    buf = b'\x00' + _bint_to_2bytes(POS) + _bint_to_2bytes(6)
+    buf = b'\x00' + _bint_to_2bytes(pos) + _bint_to_2bytes(6)
     pos += 6
     # encryption
     buf += b'\x01' + _bint_to_2bytes(pos) + _bint_to_2bytes(1)
@@ -203,10 +203,10 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
 
     assert len(buf) == 26
 
-    buf += _bin_version + _bint_to_2byte(0)
+    buf += _bin_version + _bint_to_2bytes(0)
     buf += b'\x02'  # not encryption
     buf += instance_name
-    buf += _bint_to_4bytes(threading.get_ident())
+    buf += _bint_to_4bytes(0)   # TODO: thread id
     buf += b'\x00'              # not use MARS
 
     return buf
