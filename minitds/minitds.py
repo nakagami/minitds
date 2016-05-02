@@ -312,11 +312,11 @@ def get_login_bytes(host, user, password, database, lcid):
     return buf
 
 
-def get_trans_request_bytes(req, isolation_level, trans):
+def get_trans_request_bytes(req, isolation_level, transaction_id):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
-    buf += _int_to_8bytes(trans)
+    buf += transaction_id
     buf += _int_to_4bytes(1)        # request count
     buf += _int_to_2bytes(req)
     buf += bytes([isolation_level])
@@ -546,17 +546,17 @@ class Connection(object):
         self.autocommit = autocommit
 
     def begin(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, 0))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, b'\x00'*8))
         _, _, _, data = self._read_response_packet()
         self.transaction_id = parse_trans_response(data)
 
     def commit(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, 0, 0))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, 0, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
     def rollback(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, 0, 0))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, 0, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
