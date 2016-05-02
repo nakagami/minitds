@@ -45,7 +45,9 @@ class TestMiniTds(unittest.TestCase):
 
     def test_basic(self):
         cur = self.connection.cursor()
-        cur.execute("select 1 n, @@version version")
+        cur.execute("select 1 n, db_name()")
+        self.assertEqual(['n', ''], [d[0] for d in cur.description])
+        self.assertEqual([1, 'test'], list(cur.fetchone()))
 
 if __name__ == "__main__":
     unittest.main()
