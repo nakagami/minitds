@@ -137,6 +137,13 @@ class NotSupportedError(DatabaseError):
         DatabaseError.__init__(self, 'NotSupportedError')
 
 # -----------------------------------------------------------------------------
+
+ISOLATION_LEVEL_READ_UNCOMMITTED = 1
+ISOLATION_LEVEL_READ_COMMITTED = 2
+ISOLATION_LEVEL_REPEATABLE_READ = 3
+ISOLATION_LEVEL_SERIALIZABLE = 4
+ISOLATION_LEVEL_SNAPSHOT = 5
+
 # Message type
 TDS_SQL_BATCH = 1
 TDS_RPC = 3
@@ -589,11 +596,12 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, port, lcid, timeout):
+    def __init__(self, user, password, database, host, isolation_level, port, lcid, timeout):
         self.user = user
         self.password = password
         self.database = database
         self.host = host
+        self.isolation_level = isolation_level
         self.port = port
         self.lcid = lcid
         self.timeout = timeout
@@ -689,17 +697,17 @@ class Connection(object):
         self.autocommit = autocommit
 
     def begin(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, b'\x00'*8))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
         _, _, _, data = self._read_response_packet()
         self.transaction_id = parse_transaction_id(data)
 
     def commit(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, 0, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, self.isolation_level, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
     def rollback(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, 0, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, self.isolation_level, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
@@ -711,5 +719,5 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, port=14333, lcid=1033, timeout=None):
-    return Connection(user, password, database, host, port, lcid, timeout)
+def connect(host, database, user, password, isolation_level=0, port=14333, lcid=1033, timeout=None):
+    return Connection(user, password, database, host, isolation_level, port, lcid, timeout)
