@@ -85,7 +85,7 @@ class Error(Exception):
         if len(args) > 0:
             self.message = args[0]
         else:
-            self.message = b'Database Error'
+            self.message = 'Database Error'
         super(Error, self).__init__(*args)
 
     def __str__(self):
@@ -342,6 +342,30 @@ def parse_trans_response(data):
 
 # -----------------------------------------------------------------------------
 
+def escape_parameter(self, v):
+    if v is None:
+        return 'NULL'
+
+    t = type(v)
+    if t == str:
+        return u"'" + v.replace(u"'", u"''") + u"'"
+    elif t == bool:
+        return u"TRUE" if v else u"FALSE"
+    elif t == time.struct_time:
+        return u'%04d-%02d-%02d %02d:%02d:%02d' % (
+            v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
+    elif t == datetime.datetime:
+        return "timestamp '" + v.isoformat() + "'"
+    elif t == datetime.date:
+        return "date '" + str(v) + "'"
+    elif t == datetime.timedelta:
+        return u"interval '" + str(v) + "'"
+    elif t == int or t == float or (PY2 and t == long):
+        return str(v)
+    elif t == decimal.Decimal:
+        return "decimal '" + str(v) + "'"
+    else:
+        return "'" + str(v) + "'"
 
 class Cursor(object):
     def __init__(self, connection):
@@ -377,12 +401,10 @@ class Cursor(object):
         self._rows.clear()
         self.args = args
         if args:
-            escaped_args = tuple(
-                self.connection.escape_parameter(arg).replace(u'%', u'%%') for arg in args
-            )
-            query = query.replace(u'%', u'%%').replace(u'%%s', u'%s')
+            escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
+            query = query.replace('%', '%%').replace('%%s', '%s')
             query = query % escaped_args
-            query = query.replace(u'%%', u'%')
+            query = query.replace('%%', '%')
         self.query = query
         self.connection.execute(query)
 
