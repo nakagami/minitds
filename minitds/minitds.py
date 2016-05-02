@@ -155,6 +155,8 @@ TM_ROLLBACK_XACT = 8
 # Token type
 TDS_TOKEN_COLMETADATA = 0x81
 TDS_TOKEN_ENVCHANGE = 0xE3
+TDS_ROW_TOKEN = 0xD1
+TDS_DONE_TOKEN = 0xFD
 
 # Column type
 SYBVOID = 31  # 0x1F
@@ -162,7 +164,7 @@ IMAGETYPE = 34  # 0x22
 TEXTTYPE = 35  # 0x23
 SYBVARBINARY = 37  # 0x25
 INTNTYPE = 38  # 0x26
-SYBVARCHAR = 39         # 0x27
+SYBVARCHAR = 39  # 0x27
 BINARYTYPE = 45  # 0x2D
 SYBCHAR = 47  # 0x2F
 INT1TYPE = 48  # 0x30
@@ -171,7 +173,7 @@ INT2TYPE = 52  # 0x34
 INT4TYPE = 56  # 0x38
 DATETIM4TYPE = 58  # 0x3A
 FLT4TYPE = 59  # 0x3B
-MONEYTYPE = SYBMONEY = 60  # 0x3C
+MONEYTYPE = 60  # 0x3C
 DATETIMETYPE = 61  # 0x3D
 FLT8TYPE = 62  # 0x3E
 NTEXTTYPE = 99  # 0x63
@@ -191,7 +193,7 @@ NVARCHARTYPE = 231  # 0xE7
 NCHARTYPE = 239  # 0xEF
 BIGVARBINTYPE = 165  # 0xA5
 BIGBINARYTYPE = 173  # 0xAD
-GUIDTYPE = SYBUNIQUE = 36  # 0x24
+GUIDTYPE = 36  # 0x24
 SSVARIANTTYPE = 98  # 0x62
 UDTTYPE = 240  # 0xF0
 XMLTYPE = 241  # 0xF1
@@ -405,6 +407,7 @@ def parse_transaction_id(data):
     assert data[4] == 8  # transaction id size
     return data[5:13]    # transaction id
 
+
 def _parse_description_type(data):
     size = precision = scale = -1
     user_type = _bytes_to_uint(data[:4])
@@ -427,7 +430,8 @@ def _parse_description_type(data):
     name = _bytes_to_str(data[1:1+ln*2])
     data = data[1+ln*2:]
     DEBUG_OUTPUT("desc %d,%s,%d,%d,%d" % (type_id, name, size, precision, scale))
-    return type_id, name, size, precision, scale, data
+    return type_id, name, size, precision, scale, True, data
+
 
 def parse_description(data):
     assert data[0] == TDS_TOKEN_COLMETADATA
@@ -436,14 +440,41 @@ def parse_description(data):
         return []
 
     description = []
-    print("num_cols=", num_cols)
     data = data[3:]
     for i in range(num_cols):
-        print("data=", binascii.b2a_hex(data).decode('ascii'))
-        type_id, name, size, precision, scale, data = _parse_description_type(data)
-        description.append((type_id, name, size, precision, scale))
+        type_id, name, size, precision, scale, null_ok, data = _parse_description_type(data)
+        description.append((name, type_id, size, size, precision, scale, null_ok))
 
     return description, data
+
+
+def _parse_row(description, data):
+    print("_parse_row() start data=", binascii.b2a_hex(data).decode('ascii'))
+    row = []
+    for d in description:
+        if d[1] in (INT4TYPE,):
+            if data[0] == 0:
+                v = None
+            else:
+                ln = d[1]
+                v = _bytes_to_int(data[1:ln+1])
+                data = data[ln+1:]
+            print(ln)
+            print(v)
+        elif d[1] in (NVARCHARTYPE,):
+            ln = _bytes_to_int(data[:2])
+            if ln < 0:
+                v = None
+            else:
+                v = _bytes_to_str(data[2:ln+2])
+                data = data[ln+2:]
+            print(ln)
+            print(v)
+        else:
+            print("parse_row() Unknown type")
+        row.append(v)
+    print("_parse_row() end data=", binascii.b2a_hex(data).decode('ascii'))
+    return row, data
 
 
 # -----------------------------------------------------------------------------
@@ -647,7 +678,14 @@ class Connection(object):
     def execute(self, query):
         self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
         _, _, _, data = self._read_response_packet()
-        parse_description(data)
+        self.description, data = parse_description(data)
+        self._rows = []
+
+        while data[0] == TDS_ROW_TOKEN:
+            row, data = _parse_row(self.description, data[1:])
+            self._rows.append(row)
+        assert data[0] == TDS_DONE_TOKEN
+
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
