@@ -44,9 +44,6 @@ paramstyle = 'format'
 DEBUG = True
 
 
-def DEBUG_OUTPUT(s):
-    print(s, end=' \n', file=sys.stderr)
-
 # -----------------------------------------------------------------------------
 Date = datetime.date
 Time = datetime.time
@@ -431,7 +428,6 @@ def _parse_description_type(data):
         data = data[9+5:]
     else:
         print("Unknown type_id:", type_id)
-        print("data=", binascii.b2a_hex(data).decode('ascii'))
 
     ln = data[0]
     name = _bytes_to_str(data[1:1+ln*2])
@@ -650,13 +646,6 @@ class Connection(object):
         return t, status, spid, self._read(ln)
 
     def _send_message(self, message_type, is_final, buf):
-        print("data=", binascii.b2a_hex(
-            bytes([message_type, 1 if is_final else 0]) +
-            _bint_to_2bytes(8 + len(buf)) +
-            _bint_to_2bytes(0) +
-            bytes([self._packet_id, 0]) +
-            buf
-        ).decode('ascii'))
         self._write(
             bytes([message_type, 1 if is_final else 0]) +
             _bint_to_2bytes(8 + len(buf)) +
@@ -669,8 +658,6 @@ class Connection(object):
     def _open(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.host, self.port))
-        if DEBUG:
-            DEBUG_OUTPUT("socket %s:%d" % (self.host, self.port))
 
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
@@ -712,8 +699,6 @@ class Connection(object):
         self.begin()
 
     def close(self):
-        if DEBUG:
-            DEBUG_OUTPUT('Connection::close()')
         if self.sock:
             self.sock.close()
             self.sock = None
