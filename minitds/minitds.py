@@ -151,6 +151,8 @@ TM_BEGIN_XACT = 5
 TM_COMMIT_XACT = 7
 TM_ROLLBACK_XACT = 8
 
+TDS_TOKEN_ENVCHANGE = 0xE3
+
 _bin_version = b'\x00' + bytes(list(VERSION))
 
 
@@ -322,16 +324,21 @@ def get_trans_request_bytes(req, isolation_level, trans):
     return buf
 
 
-def get_query_bytes(query, trans):
+def get_query_bytes(query, transaction_id):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
-    buf += _int_to_8bytes(trans)
+    buf += transaction_id
     buf += _int_to_4bytes(1)        # request count
     buf += _str_to_bytes(query)
 
     return buf
 
+def parse_trans_response(data):
+    assert data[0] == TDS_TOKEN_ENVCHANGE
+    assert data[3] == 8  # Begin Transaction
+    assert data[4] == 8  # transaction id size
+    return data[5:13]    # transaction id
 
 # -----------------------------------------------------------------------------
 
@@ -448,8 +455,8 @@ class Connection(object):
         self._read_response_packet()
         self._send_message(TDS_LOGIN, True, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, 0))
-        self._read_response_packet()
+        self.begin()
+
 
     def __enter__(self):
         return self
@@ -510,20 +517,26 @@ class Connection(object):
         return Cursor(self)
 
     def execute(self, query):
-        self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, 0))
+        self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
         self._read_response_packet()
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
 
     def begin(self):
-        pass
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, 0))
+        _, _, _, data = self._read_response_packet()
+        self.transaction_id = parse_trans_response(data)
 
     def commit(self):
-        pass
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, 0, 0))
+        self._read_response_packet()
+        self.begin()
 
     def rollback(self):
-        pass
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, 0, 0))
+        self._read_response_packet()
+        self.begin()
 
     def close(self):
         if DEBUG:
