@@ -429,7 +429,6 @@ def _parse_description_type(data):
     ln = data[0]
     name = _bytes_to_str(data[1:1+ln*2])
     data = data[1+ln*2:]
-    DEBUG_OUTPUT("desc %d,%s,%d,%d,%d" % (type_id, name, size, precision, scale))
     return type_id, name, size, precision, scale, True, data
 
 
@@ -449,31 +448,21 @@ def parse_description(data):
 
 
 def _parse_row(description, data):
-    print("_parse_row() start data=", binascii.b2a_hex(data).decode('ascii'))
     row = []
-    for d in description:
-        if d[1] in (INT4TYPE,):
-            if data[0] == 0:
-                v = None
-            else:
-                ln = d[1]
-                v = _bytes_to_int(data[1:ln+1])
-                data = data[ln+1:]
-            print(ln)
-            print(v)
-        elif d[1] in (NVARCHARTYPE,):
+    for _, type_id, ln, _, _, _, _ in description:
+        if type_id in (INT4TYPE,):
+            v = _bytes_to_int(data[:ln])
+            data = data[ln:]
+        elif type_id in (NVARCHARTYPE,):
             ln = _bytes_to_int(data[:2])
             if ln < 0:
                 v = None
             else:
                 v = _bytes_to_str(data[2:ln+2])
                 data = data[ln+2:]
-            print(ln)
-            print(v)
         else:
             print("parse_row() Unknown type")
         row.append(v)
-    print("_parse_row() end data=", binascii.b2a_hex(data).decode('ascii'))
     return row, data
 
 
@@ -508,7 +497,7 @@ class Cursor(object):
     def __init__(self, connection):
         self.connection = connection
         self.description = []
-        self._rows = collections.deque()
+        self._rows = []
         self._rowcount = 0
         self.arraysize = 1
         self.query = None
@@ -535,7 +524,6 @@ class Cursor(object):
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
         self.description = []
-        self._rows.clear()
         self.args = args
         if args:
             escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
@@ -543,7 +531,7 @@ class Cursor(object):
             query = query % escaped_args
             query = query.replace('%%', '%')
         self.query = query
-        self.connection.execute(query)
+        self.description, self._rows = self.connection._execute(query)
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
@@ -556,8 +544,11 @@ class Cursor(object):
         if not self.connection or not self.connection.is_connect():
             raise OperationalError("Lost connection")
         if len(self._rows):
-            return self._rows.popleft()
-        return None
+            row = self._rows[0]
+            self._rows[1:]
+        else:
+            row = None
+        return row
 
     def fetchmany(self, size=1):
         rs = []
@@ -569,9 +560,9 @@ class Cursor(object):
         return rs
 
     def fetchall(self):
-        r = list(self._rows)
-        self._rows.clear()
-        return r
+        rows = self._rows
+        self._rows = []
+        return rows
 
     def close(self):
         self.connection = None
@@ -675,16 +666,16 @@ class Connection(object):
     def cursor(self):
         return Cursor(self)
 
-    def execute(self, query):
+    def _execute(self, query):
         self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
         _, _, _, data = self._read_response_packet()
-        self.description, data = parse_description(data)
-        self._rows = []
-
+        description, data = parse_description(data)
+        rows = []
         while data[0] == TDS_ROW_TOKEN:
-            row, data = _parse_row(self.description, data[1:])
-            self._rows.append(row)
+            row, data = _parse_row(description, data[1:])
+            rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
+        return description, rows
 
 
     def set_autocommit(self, autocommit):
