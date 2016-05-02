@@ -147,17 +147,76 @@ TDS_TRANSACTION_MANAGER_REQUEST = 14
 TDS_LOGIN = 16
 TDS_PRELOGIN = 18
 
+# Transaction
 TM_BEGIN_XACT = 5
 TM_COMMIT_XACT = 7
 TM_ROLLBACK_XACT = 8
 
+# Token type
+TDS_TOKEN_COLMETADATA = 0x81
 TDS_TOKEN_ENVCHANGE = 0xE3
+
+# Column type
+SYBVOID = 31  # 0x1F
+IMAGETYPE = 34  # 0x22
+TEXTTYPE = 35  # 0x23
+SYBVARBINARY = 37  # 0x25
+INTNTYPE = 38  # 0x26
+SYBVARCHAR = 39         # 0x27
+BINARYTYPE = 45  # 0x2D
+SYBCHAR = 47  # 0x2F
+INT1TYPE = 48  # 0x30
+BITTYPE = 50  # 0x32
+INT2TYPE = 52  # 0x34
+INT4TYPE = 56  # 0x38
+DATETIM4TYPE = 58  # 0x3A
+FLT4TYPE = 59  # 0x3B
+MONEYTYPE = SYBMONEY = 60  # 0x3C
+DATETIMETYPE = 61  # 0x3D
+FLT8TYPE = 62  # 0x3E
+NTEXTTYPE = 99  # 0x63
+SYBNVARCHAR = 103  # 0x67
+BITNTYPE = 104  # 0x68
+NUMERICNTYPE = 108  # 0x6C
+DECIMALNTYPE = 106  # 0x6A
+FLTNTYPE = 109  # 0x6D
+MONEYNTYPE = 110  # 0x6E
+DATETIMNTYPE = 111  # 0x6F
+MONEY4TYPE = 122  # 0x7A
+
+INT8TYPE = 127  # 0x7F
+BIGCHARTYPE = 175  # 0xAF
+BIGVARCHRTYPE = 167  # 0xA7
+NVARCHARTYPE = 231  # 0xE7
+NCHARTYPE = 239  # 0xEF
+BIGVARBINTYPE = 165  # 0xA5
+BIGBINARYTYPE = 173  # 0xAD
+GUIDTYPE = SYBUNIQUE = 36  # 0x24
+SSVARIANTTYPE = 98  # 0x62
+UDTTYPE = 240  # 0xF0
+XMLTYPE = 241  # 0xF1
+DATENTYPE = 40  # 0x28
+TIMENTYPE = 41  # 0x29
+DATETIME2NTYPE = 42  # 0x2a
+DATETIMEOFFSETNTYPE = 43  # 0x2b
+
+FIX_TYPE_MAP = {
+    # type_id: (size, precision, scale)}
+    INT4TYPE: (4, -1, -1),
+}
 
 _bin_version = b'\x00' + bytes(list(VERSION))
 
-
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
+
+
+def _bytes_to_int(b):
+    return int.from_bytes(b, byteorder='little')
+
+
+def _bytes_to_uint(b):
+    return int.from_bytes(b, byteorder='little', signed=False)
 
 
 def _bint_to_2bytes(v):
@@ -182,6 +241,10 @@ def _int_to_8bytes(v):
 
 def _str_to_bytes(s):
     return s.encode('utf_16_le')
+
+
+def _bytes_to_str(b):
+    return b.decode('utf_16_le')
 
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
@@ -334,11 +397,54 @@ def get_query_bytes(query, transaction_id):
 
     return buf
 
-def parse_trans_response(data):
+
+def parse_transaction_id(data):
+    "return transaction_id"
     assert data[0] == TDS_TOKEN_ENVCHANGE
     assert data[3] == 8  # Begin Transaction
     assert data[4] == 8  # transaction id size
     return data[5:13]    # transaction id
+
+def _parse_description_type(data):
+    size = precision = scale = -1
+    user_type = _bytes_to_uint(data[:4])
+    flags = _bytes_to_uint(data[4:6])
+    type_id = data[6]
+
+    fix_type = FIX_TYPE_MAP.get(type_id)
+    if fix_type:
+        size, precision, scale = fix_type
+        data = data[7:]
+    elif type_id in (NVARCHARTYPE,):
+        size = _bytes_to_uint(data[7:9])
+        # skip collation
+        data = data[9+5:]
+    else:
+        print("Unknown type_id:", type_id)
+        print("data=", binascii.b2a_hex(data).decode('ascii'))
+
+    ln = data[0]
+    name = _bytes_to_str(data[1:1+ln*2])
+    data = data[1+ln*2:]
+    DEBUG_OUTPUT("desc %d,%s,%d,%d,%d" % (type_id, name, size, precision, scale))
+    return type_id, name, size, precision, scale, data
+
+def parse_description(data):
+    assert data[0] == TDS_TOKEN_COLMETADATA
+    num_cols = _bytes_to_int(data[1:3])
+    if num_cols == -1:
+        return []
+
+    description = []
+    print("num_cols=", num_cols)
+    data = data[3:]
+    for i in range(num_cols):
+        print("data=", binascii.b2a_hex(data).decode('ascii'))
+        type_id, name, size, precision, scale, data = _parse_description_type(data)
+        description.append((type_id, name, size, precision, scale))
+
+    return description, data
+
 
 # -----------------------------------------------------------------------------
 
@@ -540,7 +646,8 @@ class Connection(object):
 
     def execute(self, query):
         self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
-        self._read_response_packet()
+        _, _, _, data = self._read_response_packet()
+        parse_description(data)
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
@@ -548,7 +655,7 @@ class Connection(object):
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, 0, b'\x00'*8))
         _, _, _, data = self._read_response_packet()
-        self.transaction_id = parse_trans_response(data)
+        self.transaction_id = parse_transaction_id(data)
 
     def commit(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, 0, self.transaction_id))
