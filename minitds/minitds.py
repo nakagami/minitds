@@ -202,7 +202,7 @@ TIMENTYPE = 41  # 0x29
 DATETIME2NTYPE = 42  # 0x2a
 DATETIMEOFFSETNTYPE = 43  # 0x2b
 
-FIX_TYPE_MAP = {
+FIXED_TYPE_MAP = {
     # type_id: (size, precision, scale)}
     INT4TYPE: (4, -1, -1),
 }
@@ -414,7 +414,7 @@ def _parse_description_type(data):
     flags = _bytes_to_uint(data[4:6])
     type_id = data[6]
 
-    fix_type = FIX_TYPE_MAP.get(type_id)
+    fix_type = FIXED_TYPE_MAP.get(type_id)
     if fix_type:
         size, precision, scale = fix_type
         data = data[7:]
@@ -642,6 +642,13 @@ class Connection(object):
         return t, status, spid, self._read(ln)
 
     def _send_message(self, message_type, is_final, buf):
+        print("data=", binascii.b2a_hex(
+            bytes([message_type, 1 if is_final else 0]) +
+            _bint_to_2bytes(8 + len(buf)) +
+            _bint_to_2bytes(0) +
+            bytes([self._packet_id, 0]) +
+            buf
+        ).decode('ascii'))
         self._write(
             bytes([message_type, 1 if is_final else 0]) +
             _bint_to_2bytes(8 + len(buf)) +
