@@ -23,7 +23,9 @@
 # SOFTWARE.
 ##############################################################################
 import unittest
+import decimal
 import minitds
+
 
 class TestMiniTds(unittest.TestCase):
     host = 'localhost'
@@ -43,11 +45,11 @@ class TestMiniTds(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
 
-    def test_basic(self):
+    def test_basic_type(self):
         cur = self.connection.cursor()
-        cur.execute("select 1 n, db_name()")
-        self.assertEqual(['n', ''], [d[0] for d in cur.description])
-        self.assertEqual([1, 'test'], list(cur.fetchone()))
+        cur.execute("select 1 n, 1.2, db_name()")
+        self.assertEqual(['n', '', ''], [d[0] for d in cur.description])
+        self.assertEqual([1, decimal.Decimal('1.2'), 'test'], list(cur.fetchone()))
 
 if __name__ == "__main__":
     unittest.main()

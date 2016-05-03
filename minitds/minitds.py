@@ -458,7 +458,7 @@ def _parse_description_type(data):
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         size = data[7]
         precision = data[8]
-        precision = data[9]
+        scale = data[9]
         data = data[10:]
     elif type_id in (NVARCHARTYPE,):
         size = _bytes_to_uint(data[7:9])
