@@ -502,10 +502,13 @@ def _parse_row(description, data):
             data = data[size:]
         elif type_id in (INTNTYPE, ):
             ln = data[0]
+            data = data[1:]
             if ln == 0:
                 v = None
-            v = _bytes_to_int(data[:size])
-            data = data[size:]
+            else:
+                assert ln == size
+                v = _bytes_to_int(data[:size])
+                data = data[size:]
         elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
             ln = data[0]
             data = data[1:]

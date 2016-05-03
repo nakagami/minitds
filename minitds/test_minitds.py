@@ -47,9 +47,9 @@ class TestMiniTds(unittest.TestCase):
 
     def test_basic_type(self):
         cur = self.connection.cursor()
-        cur.execute("select 1 n, 1.2, db_name()")
-        self.assertEqual(['n', '', ''], [d[0] for d in cur.description])
-        self.assertEqual([1, decimal.Decimal('1.2'), 'test'], list(cur.fetchone()))
+        cur.execute("select 1 n, 1.2, db_name(), NULL")
+        self.assertEqual(['n', '', '', ''], [d[0] for d in cur.description])
+        self.assertEqual([1, decimal.Decimal('1.2'), 'test', None], list(cur.fetchone()))
 
     def test_large_results(self):
         cur = self.connection.cursor()
