@@ -333,7 +333,7 @@ def get_login_bytes(host, user, password, database, lcid):
     buf = b''
     buf += _int_to_4bytes(packet_size)
     buf += b'\x04\x00\x00\x74'   # TDS 7.4
-    buf += _int_to_4bytes(4096)
+    buf += _int_to_4bytes(16384)
     buf += _bin_version
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
@@ -460,7 +460,7 @@ def _parse_description_type(data):
         precision = data[8]
         scale = data[9]
         data = data[10:]
-    elif type_id in (NVARCHARTYPE,):
+    elif type_id in (NVARCHARTYPE,BIGVARCHRTYPE):
         size = _bytes_to_uint(data[7:9])
         # skip collation
         data = data[9+5:]
@@ -505,7 +505,7 @@ def _parse_row(description, data):
                 v *= -1
             v /= 10 ** scale
             data = data[ln:]
-        elif type_id in (NVARCHARTYPE,):
+        elif type_id in (NVARCHARTYPE, BIGVARCHRTYPE):
             ln = _bytes_to_int(data[:2])
             if ln < 0:
                 v = None
@@ -748,8 +748,15 @@ class Connection(object):
 
     def _execute(self, query):
         self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
-        _, _, _, data = self._read_response_packet()
-        description, data = _parse_description(data)
+        token, status, spid, data = self._read_response_packet()
+        while status == 0:
+            token, status, spid, more_data = self._read_response_packet()
+            data += more_data
+
+        if data[0] == TDS_TOKEN_COLMETADATA:
+            description, data = _parse_description(data)
+        else:
+            description = []
         rows = []
         while data[0] == TDS_ROW_TOKEN:
             row, data = _parse_row(description, data[1:])

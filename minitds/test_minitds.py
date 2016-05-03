@@ -51,5 +51,22 @@ class TestMiniTds(unittest.TestCase):
         self.assertEqual(['n', '', ''], [d[0] for d in cur.description])
         self.assertEqual([1, decimal.Decimal('1.2'), 'test'], list(cur.fetchone()))
 
+    def test_large_results(self):
+        cur = self.connection.cursor()
+        cur.execute("drop table if exists test_large_results")
+        cur.execute("""
+            CREATE TABLE test_large_results(
+                id int IDENTITY(1,1) NOT NULL,
+                s varchar(4096)
+            )
+        """)
+        for i in range(30):
+            s = "insert into test_large_results (s) values ('%s')" % ("A" * 3000,)
+            cur.execute(s)
+            self.connection.commit()
+        cur.execute("select * from test_large_results")
+        self.assertEqual(len(cur.fetchall()), 30)
+
+
 if __name__ == "__main__":
     unittest.main()
