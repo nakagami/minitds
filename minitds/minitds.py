@@ -784,6 +784,8 @@ class Connection(object):
             row, data = parse_row(description, data[1:])
             rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
+        if self.autocommit:
+            self.commit()
 
         return description, rows
 

@@ -51,6 +51,33 @@ class TestMiniTds(unittest.TestCase):
         self.assertEqual(['n', '', '', ''], [d[0] for d in cur.description])
         self.assertEqual([1, decimal.Decimal('1.2'), 'test', None], list(cur.fetchone()))
 
+    def test_autocommit(self):
+        cur = self.connection.cursor()
+        cur.execute("drop table if exists test_autocommit")
+        cur.execute("""
+            CREATE TABLE test_autocommit(
+                id int IDENTITY(1,1) NOT NULL,
+                s varchar(4096)
+            )
+        """)
+        self.connection.commit()
+
+        cur.execute("insert into test_autocommit (s) values ('a')")
+        cur.execute("select count(*) from test_autocommit")
+        self.assertEqual(cur.fetchone()[0], 1)
+        self.connection.rollback()
+        cur.execute("select count(*) from test_autocommit")
+        self.assertEqual(cur.fetchone()[0], 0)
+
+        self.connection.set_autocommit(True)
+        cur.execute("insert into test_autocommit (s) values ('a')")
+        cur.execute("select count(*) from test_autocommit")
+        self.assertEqual(cur.fetchone()[0], 1)
+        self.connection.rollback()
+        cur.execute("select count(*) from test_autocommit")
+        self.assertEqual(cur.fetchone()[0], 1)
+
+
     def test_large_results(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_large_results")
