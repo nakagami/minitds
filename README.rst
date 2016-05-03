@@ -2,7 +2,7 @@
 minitds
 =============
 
-Yet another Python SQL Server  database driver.
+Yet another Python SQLServer database driver.
 
 Requirements
 -----------------
