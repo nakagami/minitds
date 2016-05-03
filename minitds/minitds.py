@@ -34,6 +34,7 @@ import time
 import collections
 import binascii
 import uuid
+from argparse import ArgumentParser
 
 VERSION = (0, 0, 1)
 __version__ = '%s.%s.%s' % VERSION
@@ -845,7 +846,7 @@ def main(file):
     if args.query is None:
         args.query = sys.stdin.read()
 
-    conn = connect(args.host, args.user, args.password, args.database, args.port)
+    conn = connect(args.host, args.database, args.user, args.password, 0, args.port)
     output_results(conn, args.query, args.with_header, args.field_separator, args.null, file)
 
     conn.commit()
