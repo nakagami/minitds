@@ -45,3 +45,13 @@ Query::
       print(r[0], r[1])
    conn.close()
 
+Restrictions
+----------------
+
+Not support SSL encryption.
+++++++++++++++++++++++++++++
+
+I don't understand how to negotiate SSL handshake in TDS protocol.
+https://msdn.microsoft.com/en-us/library/dd357559.aspx
+
+I want someone's help.
