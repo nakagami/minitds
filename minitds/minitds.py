@@ -218,10 +218,11 @@ DATETIME2NTYPE = 42  # 0x2a
 DATETIMEOFFSETNTYPE = 43  # 0x2b
 
 FIXED_TYPE_MAP = {
-    # type_id: (size, precision, scale)}
-    INT4TYPE: (4, -1, -1),
-    DATETIM4TYPE: (4, -1, -1),
-    DATETIMETYPE: (8, -1, -1),
+    # type_id: (size, precision, scale, null_ok)}
+    INTNTYPE: (4, -1, -1, True),
+    INT4TYPE: (4, -1, -1, False),
+    DATETIM4TYPE: (4, -1, -1, False),
+    DATETIMETYPE: (8, -1, -1, False),
 }
 
 _bin_version = b'\x00' + bytes(list(VERSION))
@@ -453,8 +454,11 @@ def _parse_description_type(data):
 
     fix_type = FIXED_TYPE_MAP.get(type_id)
     if fix_type:
-        size, precision, scale = fix_type
+        size, precision, scale, null_ok = fix_type
         data = data[7:]
+        if null_ok:
+            assert data[0] == size
+            data = data[1:]
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         size = data[7]
         precision = data[8]
@@ -492,10 +496,16 @@ def _parse_description(data):
 
 def _parse_row(description, data):
     row = []
-    for _, type_id, ln, _, precision, scale, _ in description:
+    for _, type_id, size, _, precision, scale, _ in description:
         if type_id in (INT4TYPE,):
-            v = _bytes_to_int(data[:ln])
-            data = data[ln:]
+            v = _bytes_to_int(data[:size])
+            data = data[size:]
+        elif type_id in (INTNTYPE, ):
+            ln = data[0]
+            if ln == 0:
+                v = None
+            v = _bytes_to_int(data[:size])
+            data = data[size:]
         elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
             ln = data[0]
             data = data[1:]
@@ -513,9 +523,9 @@ def _parse_row(description, data):
                 v = _bytes_to_str(data[2:ln+2])
                 data = data[ln+2:]
         elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
-            d = _bytes_to_int(data[:ln//2])
-            t = _bytes_to_int(data[ln//2:ln])
-            data = data[ln:]
+            d = _bytes_to_int(data[:size//2])
+            t = _bytes_to_int(data[size//2:size])
+            data = data[size:]
             ms = int(round(t % 300 * 10 / 3.0))
             secs = t // 300
             v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
