@@ -49,9 +49,8 @@ Restrictions
 ----------------
 
 Not support SSL encryption.
-++++++++++++++++++++++++++++
 
-I don't understand how to negotiate SSL handshake in TDS protocol.
-https://msdn.microsoft.com/en-us/library/dd357559.aspx
+   I don't understand how to negotiate SSL handshake in TDS protocol.
+   https://msdn.microsoft.com/en-us/library/dd357559.aspx
 
-I want someone's help.
+   I want someone's help.
