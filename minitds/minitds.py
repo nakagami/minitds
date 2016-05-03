@@ -175,7 +175,6 @@ TDS_ROW_TOKEN = 0xD1
 TDS_DONE_TOKEN = 0xFD
 
 # Column type
-SYBVOID = 31  # 0x1F
 IMAGETYPE = 34  # 0x22
 TEXTTYPE = 35  # 0x23
 SYBVARBINARY = 37  # 0x25
@@ -221,9 +220,16 @@ DATETIMEOFFSETNTYPE = 43  # 0x2b
 FIXED_TYPE_MAP = {
     # type_id: (size, precision, scale)}
     INT4TYPE: (4, -1, -1),
+    DATETIM4TYPE: (4, -1, -1),
+    DATETIMETYPE: (8, -1, -1),
 }
 
 _bin_version = b'\x00' + bytes(list(VERSION))
+
+def _min_timezone_offset():
+    "time zone offset (minutes)"
+    now = time.time()
+    return (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
 
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
@@ -265,6 +271,23 @@ def _bytes_to_str(b):
     return b.decode('utf_16_le')
 
 
+def _convert_time(b, precision):
+        v = _bytes_to_int(b)
+        v *= 10 ** (7 - precision)
+        nanoseconds = v * 100
+        hours = nanoseconds // 1000000000 // 60 // 60
+        nanoseconds -= hours * 60 * 60 * 1000000000
+        minutes = nanoseconds // 1000000000 // 60
+        nanoseconds -= minutes * 60 * 1000000000
+        seconds = nanoseconds // 1000000000
+        nanoseconds -= seconds * 1000000000
+        return datetime.time(hours, minutes, seconds, nanoseconds // 1000)
+
+
+def _convert_date(b):
+    return datetime.datetime(1900, 1, 1) + datetime.timedelta(days=_bytes_to_int(b))
+
+
 def get_prelogin_bytes(instance_name="MSSQLServer"):
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
@@ -304,8 +327,6 @@ def get_login_bytes(host, user, password, database, lcid):
     lib_name = "minitds"
     language = ""                       # server default
     db_file = ""
-    now = time.time()
-    min_offset = (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
 
     packet_size = pos + (len(client_name) + len(app_name) + len(host) + len(user) + len(password) + len(lib_name) + len(language) + len(database) + len(db_file)) * 2
 
@@ -322,7 +343,7 @@ def get_login_bytes(host, user, password, database, lcid):
         0,                   # TypeFlags
         0x80,                # OptionFlags3 UNKNOWN_COLLATION_HANDLING
     ])
-    buf += _int_to_4bytes(min_offset)   # time zone offset
+    buf += _int_to_4bytes(_min_timezone_offset())
     buf += _int_to_4bytes(lcid)
 
     buf += _int_to_2bytes(pos)
@@ -438,6 +459,9 @@ def _parse_description_type(data):
         size = _bytes_to_uint(data[7:9])
         # skip collation
         data = data[9+5:]
+    elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE,):
+        precision = data[7]
+        data = data[8:]
     else:
         print("Unknown type_id:", type_id)
 
@@ -447,7 +471,7 @@ def _parse_description_type(data):
     return type_id, name, size, precision, scale, True, data
 
 
-def parse_description(data):
+def _parse_description(data):
     assert data[0] == TDS_TOKEN_COLMETADATA
     num_cols = _bytes_to_int(data[1:3])
     if num_cols == -1:
@@ -458,13 +482,12 @@ def parse_description(data):
     for i in range(num_cols):
         type_id, name, size, precision, scale, null_ok, data = _parse_description_type(data)
         description.append((name, type_id, size, size, precision, scale, null_ok))
-
     return description, data
 
 
 def _parse_row(description, data):
     row = []
-    for _, type_id, ln, _, _, _, _ in description:
+    for _, type_id, ln, _, precision, _, _ in description:
         if type_id in (INT4TYPE,):
             v = _bytes_to_int(data[:ln])
             data = data[ln:]
@@ -475,8 +498,37 @@ def _parse_row(description, data):
             else:
                 v = _bytes_to_str(data[2:ln+2])
                 data = data[ln+2:]
+        elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
+            d = _bytes_to_int(data[:ln//2])
+            t = _bytes_to_int(data[ln//2:ln])
+            data = data[ln:]
+            ms = int(round(t % 300 * 10 / 3.0))
+            secs = t // 300
+            v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+        elif type_id in (DATETIME2NTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                t = _convert_time(data[:ln-3], precision)
+                d = _convert_date(data[ln-3:ln])
+                v = datetime.datetime.combine(d, t)
+                data = data[ln:]
+        elif type_id in (DATETIMEOFFSETNTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                t = _convert_time(data[:ln-5], precision)
+                d = _convert_date(data[ln-5:ln-2])
+                tz_offset = _bytes_to_int(data[ln-2:ln])
+                v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
+                v = v.replace(tzinfo=UTC())
+                data = data[ln:]
         else:
-            print("parse_row() Unknown type")
+            print("parse_row() Unknown type", type_id)
         row.append(v)
     return row, data
 
@@ -683,7 +735,7 @@ class Connection(object):
     def _execute(self, query):
         self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
         _, _, _, data = self._read_response_packet()
-        description, data = parse_description(data)
+        description, data = _parse_description(data)
         rows = []
         while data[0] == TDS_ROW_TOKEN:
             row, data = _parse_row(description, data[1:])
