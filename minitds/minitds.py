@@ -236,7 +236,7 @@ def _bytes_to_bint(b):
 
 
 def _bytes_to_int(b):
-    return int.from_bytes(b, byteorder='little')
+    return int.from_bytes(b, byteorder='little', signed=True)
 
 
 def _bytes_to_uint(b):
@@ -272,20 +272,20 @@ def _bytes_to_str(b):
 
 
 def _convert_time(b, precision):
-        v = _bytes_to_int(b)
-        v *= 10 ** (7 - precision)
-        nanoseconds = v * 100
-        hours = nanoseconds // 1000000000 // 60 // 60
-        nanoseconds -= hours * 60 * 60 * 1000000000
-        minutes = nanoseconds // 1000000000 // 60
-        nanoseconds -= minutes * 60 * 1000000000
-        seconds = nanoseconds // 1000000000
-        nanoseconds -= seconds * 1000000000
-        return datetime.time(hours, minutes, seconds, nanoseconds // 1000)
+    v = _bytes_to_uint(b)
+    v *= 10 ** (7 - precision)
+    nanoseconds = v * 100
+    hours = nanoseconds // 1000000000 // 60 // 60
+    nanoseconds -= hours * 60 * 60 * 1000000000
+    minutes = nanoseconds // 1000000000 // 60
+    nanoseconds -= minutes * 60 * 1000000000
+    seconds = nanoseconds // 1000000000
+    nanoseconds -= seconds * 1000000000
+    return datetime.time(hours, minutes, seconds, nanoseconds // 1000)
 
 
 def _convert_date(b):
-    return datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_int(b))
+    return datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))
 
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
