@@ -455,6 +455,11 @@ def _parse_description_type(data):
     if fix_type:
         size, precision, scale = fix_type
         data = data[7:]
+    elif type_id in (DECIMALNTYPE,):
+        size = data[7]
+        precision = data[8]
+        precision = data[9]
+        data = data[10:]
     elif type_id in (NVARCHARTYPE,):
         size = _bytes_to_uint(data[7:9])
         # skip collation
@@ -487,9 +492,18 @@ def _parse_description(data):
 
 def _parse_row(description, data):
     row = []
-    for _, type_id, ln, _, precision, _, _ in description:
+    for _, type_id, ln, _, precision, scale, _ in description:
         if type_id in (INT4TYPE,):
             v = _bytes_to_int(data[:ln])
+            data = data[ln:]
+        elif type_id in (DECIMALNTYPE,):
+            ln = data[0]
+            data = data[1:]
+            positive = data[0]
+            v = decimal.Decimal(_bytes_to_int(data[1:ln]))
+            if not positive:
+                v *= -1
+            v /= 10 ** scale
             data = data[ln:]
         elif type_id in (NVARCHARTYPE,):
             ln = _bytes_to_int(data[:2])
