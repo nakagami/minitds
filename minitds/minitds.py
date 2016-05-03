@@ -171,6 +171,7 @@ TM_ROLLBACK_XACT = 8
 
 # Token type
 TDS_TOKEN_COLMETADATA = 0x81
+TDS_ERROR_TOKEN = 0xAA
 TDS_TOKEN_ENVCHANGE = 0xE3
 TDS_ROW_TOKEN = 0xD1
 TDS_DONE_TOKEN = 0xFD
@@ -481,7 +482,7 @@ def _parse_description_type(data):
     return type_id, name, size, precision, scale, True, data
 
 
-def _parse_description(data):
+def parse_description(data):
     assert data[0] == TDS_TOKEN_COLMETADATA
     num_cols = _bytes_to_int(data[1:3])
     if num_cols == -1:
@@ -495,7 +496,7 @@ def _parse_description(data):
     return description, data
 
 
-def _parse_row(description, data):
+def parse_row(description, data):
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
         if type_id in (INT4TYPE,):
@@ -560,6 +561,11 @@ def _parse_row(description, data):
         row.append(v)
     return row, data
 
+
+def parse_error(data):
+    assert data[0] == TDS_ERROR_TOKEN
+    msg_ln = _bytes_to_int(data[9:11])
+    return _bytes_to_str(data[11:msg_ln*2+11])
 
 # -----------------------------------------------------------------------------
 
@@ -767,15 +773,18 @@ class Connection(object):
             token, status, spid, more_data = self._read_response_packet()
             data += more_data
 
-        if data[0] == TDS_TOKEN_COLMETADATA:
-            description, data = _parse_description(data)
+        if data[0] == TDS_ERROR_TOKEN:
+            raise ProgrammingError(parse_error(data))
+        elif data[0] == TDS_TOKEN_COLMETADATA:
+            description, data = parse_description(data)
         else:
             description = []
         rows = []
         while data[0] == TDS_ROW_TOKEN:
-            row, data = _parse_row(description, data[1:])
+            row, data = parse_row(description, data[1:])
             rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
+
         return description, rows
 
 
