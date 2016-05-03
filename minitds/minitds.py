@@ -455,7 +455,7 @@ def _parse_description_type(data):
     if fix_type:
         size, precision, scale = fix_type
         data = data[7:]
-    elif type_id in (DECIMALNTYPE,):
+    elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         size = data[7]
         precision = data[8]
         precision = data[9]
@@ -496,7 +496,7 @@ def _parse_row(description, data):
         if type_id in (INT4TYPE,):
             v = _bytes_to_int(data[:ln])
             data = data[ln:]
-        elif type_id in (DECIMALNTYPE,):
+        elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
             ln = data[0]
             data = data[1:]
             positive = data[0]
