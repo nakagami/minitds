@@ -833,7 +833,7 @@ def main(file):
     parser.add_argument('-U', '--user', required=True, metavar='user', type=str, help='login user')
     parser.add_argument('-W', '--password', default='', metavar='password', type=str, help='login password')
     parser.add_argument('-P', '--port', default=1433, metavar='port', type=int, help='port number')
-    parser.add_argument('-D', '--database', metavar='database', type=str, help='database name')
+    parser.add_argument('-D', '--database', default='', metavar='database', type=str, help='database name')
     parser.add_argument('-Q', '--query', metavar='query', type=str, help='query string')
     parser.add_argument('-F', '--field-separator', default="\t", metavar='field_separator', type=str, help='field separator')
     parser.add_argument('--header', action='store_true', dest='with_header', help='Output header')
