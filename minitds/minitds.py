@@ -26,23 +26,19 @@
 
 import sys
 import os
-import threading
 import socket
 import decimal
 import datetime
 import time
-import collections
 import binascii
 import uuid
 from argparse import ArgumentParser
 
-VERSION = (0, 0, 1)
+VERSION = (0, 1, 0)
 __version__ = '%s.%s.%s' % VERSION
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
-
-DEBUG = True
 
 
 # -----------------------------------------------------------------------------
