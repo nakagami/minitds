@@ -218,7 +218,11 @@ DATETIMEOFFSETNTYPE = 43  # 0x2b
 FIXED_TYPE_MAP = {
     # type_id: (size, precision, scale, null_ok)}
     INTNTYPE: (4, -1, -1, True),
+    INT1TYPE: (1, -1, -1, False),
+    BITTYPE: (1, -1, -1, False),
+    INT2TYPE: (2, -1, -1, False),
     INT4TYPE: (4, -1, -1, False),
+    INT8TYPE: (8, -1, -1, False),
     DATETIM4TYPE: (4, -1, -1, False),
     DATETIMETYPE: (8, -1, -1, False),
 }
@@ -457,6 +461,12 @@ def _parse_description_type(data):
         if null_ok:
             assert data[0] == size
             data = data[1:]
+    elif type_id in (IMAGETYPE, TEXTTYPE):
+        size = _bytes_to_int(data[7])
+        table_name_ln = _bytes_to_int(data[11:13])
+        data = data[13:]
+        table_name = _bytes_to_str(data[:1+tale_name_ln*2])
+        data = data[table_name_ln*2:]
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         size = data[7]
         precision = data[8]
@@ -495,7 +505,7 @@ def parse_description(data):
 def parse_row(description, data):
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
-        if type_id in (INT4TYPE,):
+        if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE,INT8TYPE):
             v = _bytes_to_int(data[:size])
             data = data[size:]
         elif type_id in (INTNTYPE, ):
@@ -507,6 +517,18 @@ def parse_row(description, data):
                 assert ln == size
                 v = _bytes_to_int(data[:size])
                 data = data[size:]
+        elif type_id in (IMAGETYPE, TEXTTYPE):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                ln = _bytes_to_int(data[24:28])
+                data = data[28:]
+                v = data[:ln]
+                data = data[ln:]
+                if type_id == TEXTTYPE:
+                    v = _bytes_to_str(v)
         elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
             ln = data[0]
             data = data[1:]
