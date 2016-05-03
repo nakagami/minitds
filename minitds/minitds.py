@@ -285,7 +285,7 @@ def _convert_time(b, precision):
 
 
 def _convert_date(b):
-    return datetime.datetime(1900, 1, 1) + datetime.timedelta(days=_bytes_to_int(b))
+    return datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_int(b))
 
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
