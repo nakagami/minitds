@@ -32,6 +32,7 @@ import datetime
 import time
 import binascii
 import uuid
+import struct
 from argparse import ArgumentParser
 
 VERSION = (0, 1, 0)
@@ -472,6 +473,9 @@ def _parse_description_type(data):
         precision = data[8]
         scale = data[9]
         data = data[10:]
+    elif type_id in (FLTNTYPE, ):
+        size = data[7]
+        data = data[8:]
     elif type_id in (SYBVARBINARY,):
         size = _bytes_to_uint(data[7:9])
         data = date[9:]
@@ -519,6 +523,15 @@ def parse_row(description, data):
             else:
                 assert ln == size
                 v = _bytes_to_int(data[:size])
+                data = data[size:]
+        elif type_id in (FLTNTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                assert ln == size
+                v = struct.unpack('<d' if ln == 8 else '<f', data[:size])[0]
                 data = data[size:]
         elif type_id in (IMAGETYPE, TEXTTYPE):
             ln = data[0]

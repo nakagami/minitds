@@ -47,9 +47,11 @@ class TestMiniTds(unittest.TestCase):
 
     def test_basic_type(self):
         cur = self.connection.cursor()
-        cur.execute("select 1 n, 1.2, db_name(), NULL")
-        self.assertEqual(['n', '', '', ''], [d[0] for d in cur.description])
-        self.assertEqual([1, decimal.Decimal('1.2'), 'test', None], list(cur.fetchone()))
+        cur.execute("""
+            SELECT 1 a, 1.2 b, db_name() c, NULL d, cast(0.125 as float) e, cast(0.25 as real) f
+        """)
+        self.assertEqual(['a', 'b', 'c', 'd', 'e', 'f'], [d[0] for d in cur.description])
+        self.assertEqual([1, decimal.Decimal('1.2'), 'test', None, 0.125, 0.25], list(cur.fetchone()))
 
     def test_autocommit(self):
         cur = self.connection.cursor()
