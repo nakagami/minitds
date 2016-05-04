@@ -166,6 +166,9 @@ TM_BEGIN_XACT = 5
 TM_COMMIT_XACT = 7
 TM_ROLLBACK_XACT = 8
 
+# Environment type
+TDS_ENV_BEGINTRANS = 8
+
 # Token type
 TDS_TOKEN_COLMETADATA = 0x81
 TDS_ERROR_TOKEN = 0xAA
@@ -440,13 +443,28 @@ def get_query_bytes(query, transaction_id):
 
     return buf
 
+def _parse_byte(data):
+    return data[0], data[1:]
+
+
+def _parse_int(data, ln):
+    return _bytes_to_int(data[:ln]), data[ln:]
+
+
+def _parse_uint(data, ln):
+    return _bytes_to_uint(data[:ln]), data[ln:]
+
 
 def parse_transaction_id(data):
     "return transaction_id"
-    assert data[0] == TDS_TOKEN_ENVCHANGE
-    assert data[3] == 8  # Begin Transaction
-    assert data[4] == 8  # transaction id size
-    return data[5:13]    # transaction id
+    t, data = _parse_byte(data)
+    assert t == TDS_TOKEN_ENVCHANGE
+    _, data = _parse_int(data, 2)   # packet length
+    e, data = _parse_byte(data)
+    assert e == TDS_ENV_BEGINTRANS
+    ln, data = _parse_byte(data)
+    assert ln == 8                  # transaction id length
+    return data[:ln], data[ln:]
 
 
 def _parse_description_type(data):
@@ -915,7 +933,7 @@ class Connection(object):
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
         _, _, _, data = self._read_response_packet()
-        self.transaction_id = parse_transaction_id(data)
+        self.transaction_id, _ = parse_transaction_id(data)
 
     def commit(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, self.isolation_level, self.transaction_id))
