@@ -528,7 +528,6 @@ def parse_row(description, data):
             else:
                 assert ln == size
                 hi = _bytes_to_int(data[:ln//2])
-                print('hi=', hi)
                 lo = _bytes_to_uint(data[ln//2:ln])
                 v = decimal.Decimal(hi * (2**32) + lo) / 10000
                 data = data[ln:]
