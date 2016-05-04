@@ -85,6 +85,16 @@ class TestMiniTds(unittest.TestCase):
             list(cur.fetchone())
         )
 
+        cur.execute("""
+            SELECT
+                SERVERPROPERTY('Collation'),
+                SERVERPROPERTY('CollationID')
+        """)
+        r = cur.fetchone()
+        self.assertTrue(isinstance(r[0], str))
+        self.assertTrue(isinstance(r[1], int))
+
+
     def test_autocommit(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_autocommit")
