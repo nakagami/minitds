@@ -487,6 +487,9 @@ def _parse_description_type(data):
     elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE, TIMENTYPE):
         precision = data[7]
         data = data[8:]
+    elif type_id in (SSVARIANTTYPE,):
+        size = _bytes_to_int(data[7:11])
+        data = data[11:]
     else:
         print("_parse_description_type() Unknown type_id:", type_id)
 
@@ -656,6 +659,15 @@ def parse_row(description, data, encoding):
                 v = None
             else:
                 v = _convert_time(data[:ln], precision)
+                data = data[ln:]
+        elif type_id in (SSVARIANTTYPE, ):
+            ln = _bytes_to_int(data[:4])
+            data = data[4:]
+            if ln == 0:
+                v = None
+            else:
+                # TODO:
+                v = None
                 data = data[ln:]
         else:
             print("parse_row() Unknown type", type_id)
