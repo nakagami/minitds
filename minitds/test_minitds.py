@@ -81,7 +81,7 @@ class TestMiniTds(unittest.TestCase):
                 cast('D' as CHAR(2))
         """)
         self.assertEqual(
-            ['A', 'B ', b'C', b'D '],
+            ['A', 'B ', 'C', 'D '],
             list(cur.fetchone())
         )
 

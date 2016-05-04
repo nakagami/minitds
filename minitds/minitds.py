@@ -510,7 +510,7 @@ def parse_description(data):
     return description, data
 
 
-def parse_row(description, data):
+def parse_row(description, data, encoding):
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
         if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE,INT8TYPE):
@@ -597,7 +597,7 @@ def parse_row(description, data):
             if ln < 0:
                 v = None
             else:
-                v = data[:ln]
+                v = data[:ln].decode(encoding)
                 data = data[ln:]
         elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
             d = _bytes_to_int(data[:size//2])
@@ -801,6 +801,7 @@ class Connection(object):
         self.lcid = lcid
         self.timeout = timeout
         self.autocommit = False
+        self.encoding = 'UTF-8'
         self._packet_id = 0
         self._open()
 
@@ -882,7 +883,7 @@ class Connection(object):
             description = []
         rows = []
         while data[0] == TDS_ROW_TOKEN:
-            row, data = parse_row(description, data[1:])
+            row, data = parse_row(description, data[1:], self.encoding)
             rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
         if self.autocommit:
@@ -891,8 +892,13 @@ class Connection(object):
         return description, rows
 
 
+    def set_encoding(self, encoding):
+        self.encoding = encoding
+
+
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
+
 
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
