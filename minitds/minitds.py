@@ -801,7 +801,7 @@ class Connection(object):
         self.lcid = lcid
         self.timeout = timeout
         self.autocommit = False
-        self.encoding = 'UTF-8'
+        self.encoding = 'latin1'
         self._packet_id = 0
         self._open()
 
