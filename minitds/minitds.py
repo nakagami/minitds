@@ -513,7 +513,7 @@ def parse_description(data):
 def parse_row(description, data, encoding):
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
-        if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE,INT8TYPE):
+        if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
             v = _bytes_to_int(data[:size])
             data = data[size:]
         elif type_id in (BITNTYPE, ):
