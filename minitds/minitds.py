@@ -478,7 +478,9 @@ def _parse_description_type(data):
     elif type_id in (SYBVARBINARY,):
         size = _bytes_to_uint(data[7:9])
         data = date[9:]
-    elif type_id in (NCHARTYPE, NVARCHARTYPE,BIGVARCHRTYPE):
+    elif type_id in (
+        BIGCHARTYPE, BIGVARCHRTYPE, NCHARTYPE, NVARCHARTYPE, BIGVARCHRTYPE
+    ):
         size = _bytes_to_uint(data[7:9])
         # skip collation
         data = data[9+5:]
@@ -581,13 +583,21 @@ def parse_row(description, data):
             else:
                 v = data[:ln]
                 data = data[ln:]
-        elif type_id in (NCHARTYPE, NVARCHARTYPE, BIGVARCHRTYPE):
+        elif type_id in (NCHARTYPE, NVARCHARTYPE):
             ln = _bytes_to_int(data[:2])
             data = data[2:]
             if ln < 0:
                 v = None
             else:
                 v = _bytes_to_str(data[:ln])
+                data = data[ln:]
+        elif type_id in (BIGCHARTYPE, BIGVARCHRTYPE):
+            ln = _bytes_to_int(data[:2])
+            data = data[2:]
+            if ln < 0:
+                v = None
+            else:
+                v = data[:ln]
                 data = data[ln:]
         elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
             d = _bytes_to_int(data[:size//2])

@@ -75,11 +75,13 @@ class TestMiniTds(unittest.TestCase):
 
         cur.execute("""
             SELECT
-                cast('A' as NVARCHAR(1)),
-                cast('B' as NCHAR(1))
+                cast('A' as NVARCHAR(2)),
+                cast('B' as NCHAR(2)),
+                cast('C' as VARCHAR(2)),
+                cast('D' as CHAR(2))
         """)
         self.assertEqual(
-            ['A', 'B'],
+            ['A', 'B ', b'C', b'D '],
             list(cur.fetchone())
         )
 
