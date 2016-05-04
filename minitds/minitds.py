@@ -638,7 +638,7 @@ def escape_parameter(self, v):
         return "date '" + str(v) + "'"
     elif t == datetime.timedelta:
         return u"interval '" + str(v) + "'"
-    elif t == int or t == float or (PY2 and t == long):
+    elif t == int or t == float:
         return str(v)
     elif t == decimal.Decimal:
         return "decimal '" + str(v) + "'"
