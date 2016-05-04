@@ -63,10 +63,11 @@ class TestMiniTds(unittest.TestCase):
         )
         cur.execute("""
             SELECT cast('1967-08-11' as date),
-                cast('12:34:56' as time)
+                cast('12:34:56' as time),
+                cast('1967-08-11 12:34:56' as datetime)
         """)
         self.assertEqual(
-            [datetime.date(1967, 8, 11), datetime.time(12, 34, 56)],
+            [datetime.date(1967, 8, 11), datetime.time(12, 34, 56), datetime.datetime(1967, 8, 11, 12, 34, 56)],
             list(cur.fetchone())
         )
 

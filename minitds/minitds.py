@@ -460,7 +460,7 @@ def _parse_description_type(data):
         size, precision, scale = fix_type
         data = data[7:]
     elif type_id in (
-        INTNTYPE, FLTNTYPE, MONEYNTYPE,
+        BITNTYPE, INTNTYPE, FLTNTYPE, MONEYNTYPE, DATETIMNTYPE,
     ):
         size = data[7]
         data = data[8:]
@@ -514,6 +514,15 @@ def parse_row(description, data):
         if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE,INT8TYPE):
             v = _bytes_to_int(data[:size])
             data = data[size:]
+        elif type_id in (BITNTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                assert ln == size
+                v = bool(_bytes_to_int(data[:size]))
+                data = data[size:]
         elif type_id in (INTNTYPE, ):
             ln = data[0]
             data = data[1:]
@@ -596,6 +605,19 @@ def parse_row(description, data):
                 t = _convert_time(data[:ln-3], precision)
                 d = _convert_date(data[ln-3:ln])
                 v = datetime.datetime.combine(d, t)
+                data = data[ln:]
+        elif type_id in (DATETIMNTYPE,):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                assert ln == size
+                d = _bytes_to_int(data[:ln//2])
+                t = _bytes_to_int(data[ln//2:ln])
+                ms = int(round(t % 300 * 10 / 3.0))
+                secs = t // 300
+                v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
                 data = data[ln:]
         elif type_id in (DATETIMEOFFSETNTYPE, ):
             ln = data[0]
