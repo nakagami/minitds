@@ -217,15 +217,14 @@ DATETIME2NTYPE = 42  # 0x2a
 DATETIMEOFFSETNTYPE = 43  # 0x2b
 
 FIXED_TYPE_MAP = {
-    # type_id: (size, precision, scale, null_ok)}
-    INTNTYPE: (4, -1, -1, True),
-    INT1TYPE: (1, -1, -1, False),
-    BITTYPE: (1, -1, -1, False),
-    INT2TYPE: (2, -1, -1, False),
-    INT4TYPE: (4, -1, -1, False),
-    INT8TYPE: (8, -1, -1, False),
-    DATETIM4TYPE: (4, -1, -1, False),
-    DATETIMETYPE: (8, -1, -1, False),
+    # type_id: (size, precision, scale)}
+    INT1TYPE: (1, -1, -1),
+    BITTYPE: (1, -1, -1),
+    INT2TYPE: (2, -1, -1),
+    INT4TYPE: (4, -1, -1),
+    INT8TYPE: (8, -1, -1),
+    DATETIM4TYPE: (4, -1, -1),
+    DATETIMETYPE: (8, -1, -1),
 }
 
 _bin_version = b'\x00' + bytes(list(VERSION))
@@ -457,11 +456,11 @@ def _parse_description_type(data):
 
     fix_type = FIXED_TYPE_MAP.get(type_id)
     if fix_type:
-        size, precision, scale, null_ok = fix_type
+        size, precision, scale = fix_type
         data = data[7:]
-        if null_ok:
-            assert data[0] == size
-            data = data[1:]
+    elif type_id in (INTNTYPE, FLTNTYPE, MONEYNTYPE):
+        size = data[7]
+        data = data[8:]
     elif type_id in (IMAGETYPE, TEXTTYPE):
         size = _bytes_to_int(data[7])
         table_name_ln = _bytes_to_int(data[11:13])
@@ -473,9 +472,6 @@ def _parse_description_type(data):
         precision = data[8]
         scale = data[9]
         data = data[10:]
-    elif type_id in (FLTNTYPE, ):
-        size = data[7]
-        data = data[8:]
     elif type_id in (SYBVARBINARY,):
         size = _bytes_to_uint(data[7:9])
         data = date[9:]
@@ -487,7 +483,7 @@ def _parse_description_type(data):
         precision = data[7]
         data = data[8:]
     else:
-        print("Unknown type_id:", type_id)
+        print("_parse_description_type() Unknown type_id:", type_id)
 
     ln = data[0]
     name = _bytes_to_str(data[1:1+ln*2])
@@ -524,6 +520,18 @@ def parse_row(description, data):
                 assert ln == size
                 v = _bytes_to_int(data[:size])
                 data = data[size:]
+        elif type_id in (MONEYNTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                assert ln == size
+                hi = _bytes_to_int(data[:ln//2])
+                print('hi=', hi)
+                lo = _bytes_to_uint(data[ln//2:ln])
+                v = decimal.Decimal(hi * (2**32) + lo) / 10000
+                data = data[ln:]
         elif type_id in (FLTNTYPE, ):
             ln = data[0]
             data = data[1:]
