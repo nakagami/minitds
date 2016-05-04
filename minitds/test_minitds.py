@@ -46,8 +46,9 @@ class TestMiniTds(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
 
-    def test_basic_type(self):
+    def test_types(self):
         cur = self.connection.cursor()
+
         cur.execute("""
             SELECT 1 a, 1.2 b, db_name() c, NULL d,
                 cast(1.25 as money) e,
@@ -61,6 +62,7 @@ class TestMiniTds(unittest.TestCase):
             [1, decimal.Decimal('1.2'), 'test', None, decimal.Decimal('1.25'), 0.125, 0.25],
             list(cur.fetchone())
         )
+
         cur.execute("""
             SELECT cast('1967-08-11' as date),
                 cast('12:34:56' as time),
@@ -68,6 +70,15 @@ class TestMiniTds(unittest.TestCase):
         """)
         self.assertEqual(
             [datetime.date(1967, 8, 11), datetime.time(12, 34, 56), datetime.datetime(1967, 8, 11, 12, 34, 56)],
+            list(cur.fetchone())
+        )
+
+        cur.execute("""
+            SELECT
+                cast('A' as NVARCHAR(1))
+        """)
+        self.assertEqual(
+            ['A'],
             list(cur.fetchone())
         )
 
