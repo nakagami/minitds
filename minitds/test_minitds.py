@@ -23,6 +23,7 @@
 # SOFTWARE.
 ##############################################################################
 import unittest
+import datetime
 import decimal
 import minitds
 
@@ -49,7 +50,7 @@ class TestMiniTds(unittest.TestCase):
         cur = self.connection.cursor()
         cur.execute("""
             SELECT 1 a, 1.2 b, db_name() c, NULL d,
-                cast(1 as money) e,
+                cast(1.25 as money) e,
                 cast(0.125 as float) f, cast(0.25 as real) g
         """)
         self.assertEqual(
@@ -57,7 +58,15 @@ class TestMiniTds(unittest.TestCase):
             [d[0] for d in cur.description]
         )
         self.assertEqual(
-            [1, decimal.Decimal('1.2'), 'test', None, 1, 0.125, 0.25],
+            [1, decimal.Decimal('1.2'), 'test', None, decimal.Decimal('1.25'), 0.125, 0.25],
+            list(cur.fetchone())
+        )
+        cur.execute("""
+            SELECT cast('1967-08-11' as date),
+                cast('12:34:56' as time)
+        """)
+        self.assertEqual(
+            [datetime.date(1967, 8, 11), datetime.time(12, 34, 56)],
             list(cur.fetchone())
         )
 

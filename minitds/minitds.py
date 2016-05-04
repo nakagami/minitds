@@ -225,6 +225,7 @@ FIXED_TYPE_MAP = {
     INT8TYPE: (8, -1, -1),
     DATETIM4TYPE: (4, -1, -1),
     DATETIMETYPE: (8, -1, -1),
+    DATENTYPE: (3, -1, -1),
 }
 
 _bin_version = b'\x00' + bytes(list(VERSION))
@@ -288,7 +289,7 @@ def _convert_time(b, precision):
 
 
 def _convert_date(b):
-    return datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))
+    return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
 def get_prelogin_bytes(instance_name="MSSQLServer"):
@@ -458,7 +459,9 @@ def _parse_description_type(data):
     if fix_type:
         size, precision, scale = fix_type
         data = data[7:]
-    elif type_id in (INTNTYPE, FLTNTYPE, MONEYNTYPE):
+    elif type_id in (
+        INTNTYPE, FLTNTYPE, MONEYNTYPE,
+    ):
         size = data[7]
         data = data[8:]
     elif type_id in (IMAGETYPE, TEXTTYPE):
@@ -479,7 +482,7 @@ def _parse_description_type(data):
         size = _bytes_to_uint(data[7:9])
         # skip collation
         data = data[9+5:]
-    elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE,):
+    elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE, TIMENTYPE):
         precision = data[7]
         data = data[8:]
     else:
@@ -605,6 +608,22 @@ def parse_row(description, data):
                 tz_offset = _bytes_to_int(data[ln-2:ln])
                 v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
                 v = v.replace(tzinfo=UTC())
+                data = data[ln:]
+        elif type_id in (DATENTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                v = _convert_date(data[:ln])
+                data = data[ln:]
+        elif type_id in (TIMENTYPE, ):
+            ln = data[0]
+            data = data[1:]
+            if ln == 0:
+                v = None
+            else:
+                v = _convert_time(data[:ln], precision)
                 data = data[ln:]
         else:
             print("parse_row() Unknown type", type_id)
