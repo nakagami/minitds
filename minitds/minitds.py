@@ -831,7 +831,7 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, isolation_level, port, lcid, timeout):
+    def __init__(self, user, password, database, host, isolation_level, port, lcid, encoding, timeout):
         self.user = user
         self.password = password
         self.database = database
@@ -839,9 +839,9 @@ class Connection(object):
         self.isolation_level = isolation_level
         self.port = port
         self.lcid = lcid
+        self.encoding = encoding
         self.timeout = timeout
         self.autocommit = False
-        self.encoding = 'latin1'
         self._packet_id = 0
         self._open()
 
@@ -932,10 +932,6 @@ class Connection(object):
         return description, rows
 
 
-    def set_encoding(self, encoding):
-        self.encoding = encoding
-
-
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
 
@@ -961,8 +957,8 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=14333, lcid=1033, timeout=None):
-    return Connection(user, password, database, host, isolation_level, port, lcid, timeout)
+def connect(host, database, user, password, isolation_level=0, port=14333, lcid=1033, encoding='latin1', timeout=None):
+    return Connection(user, password, database, host, isolation_level, port, lcid, encoding, timeout)
 
 
 def output_results(conn, query, with_header=True, separator="\t", null='null', file=sys.stdout):
@@ -992,6 +988,7 @@ def main(file):
     parser.add_argument('-W', '--password', default='', metavar='password', type=str, help='login password')
     parser.add_argument('-P', '--port', default=1433, metavar='port', type=int, help='port number')
     parser.add_argument('-D', '--database', default='', metavar='database', type=str, help='database name')
+    parser.add_argument('-E', '--encoding', default='latin1', metavar='encoding', type=str, help='server encoding')
     parser.add_argument('-Q', '--query', metavar='query', type=str, help='query string')
     parser.add_argument('-F', '--field-separator', default="\t", metavar='field_separator', type=str, help='field separator')
     parser.add_argument('--header', action='store_true', dest='with_header', help='Output header')
@@ -1004,7 +1001,7 @@ def main(file):
     if args.query is None:
         args.query = sys.stdin.read()
 
-    conn = connect(args.host, args.database, args.user, args.password, 0, args.port)
+    conn = connect(args.host, args.database, args.user, args.password, 0, args.port, encoding=args.encoding)
     output_results(conn, args.query, args.with_header, args.field_separator, args.null, file)
 
     conn.commit()
