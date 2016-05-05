@@ -140,6 +140,23 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select count(*) from test_autocommit")
         self.assertEqual(cur.fetchone()[0], 1)
 
+    def test_null_ok(self):
+        cur = self.connection.cursor()
+        cur.execute("drop table if exists test_null_ok")
+        cur.execute("""
+            CREATE TABLE test_null_ok(
+                id int IDENTITY(1,1) NOT NULL,
+                a int NOT NULL,
+                b int,
+                c varchar(4096) NOT NULL,
+                d varchar(4096)
+            )
+        """)
+        cur.execute("select id, a, b, c, d from test_null_ok")
+        self.assertEqual(
+            [False, False, True, False, True],
+            [d[6] for d in cur.description]
+        )
 
     def test_large_results(self):
         cur = self.connection.cursor()

@@ -506,6 +506,7 @@ def _parse_description_type(data):
     size = precision = scale = -1
     user_type, data = _parse_uint(data, 4)
     flags, data = _parse_uint(data, 2)
+    null_ok = (flags & 1) == 1
     type_id, data = _parse_byte(data)
 
     fix_type = FIXED_TYPE_MAP.get(type_id)
@@ -538,7 +539,7 @@ def _parse_description_type(data):
         print("_parse_description_type() Unknown type_id:", type_id)
 
     name, data = _parse_str(data, 1)
-    return type_id, name, size, precision, scale, True, data
+    return type_id, name, size, precision, scale, null_ok, data
 
 
 def parse_description(data):
