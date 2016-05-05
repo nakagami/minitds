@@ -605,59 +605,55 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
     elif type_id in (DATETIME2NTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
-            t = _convert_time(data[:ln-3], precision)
-            d = _convert_date(data[ln-3:ln])
+            t, data = data[:ln-3], data[ln-3:]
+            t = _convert_time(t, precision)
+            d, data = data[:3], data[3:]
+            d = _convert_date(d)
             v = datetime.datetime.combine(d, t)
-            data = data[ln:]
     elif type_id in (DATETIMNTYPE,):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
             assert ln == size
-            d = _bytes_to_int(data[:ln//2])
-            t = _bytes_to_int(data[ln//2:ln])
+            d, data = _parse_int(data, ln//2)
+            t, data = _parse_int(data, ln//2)
             ms = int(round(t % 300 * 10 / 3.0))
             secs = t // 300
             v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
-            data = data[ln:]
     elif type_id in (DATETIMEOFFSETNTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
-            t = _convert_time(data[:ln-5], precision)
-            d = _convert_date(data[ln-5:ln-2])
-            tz_offset = _bytes_to_int(data[ln-2:ln])
+            t, data = data[:ln-5], data[ln-5:]
+            t = _convert_time(t, precision)
+            d, data = data[:3], data[3:]
+            d = _convert_date(d)
+            tz_offset, data = data[:2], data[2:]
+            tz_offset = _bytes_to_int(tz_offset)
             v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
             v = v.replace(tzinfo=UTC())
-            data = data[ln:]
     elif type_id in (DATENTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
-            v = _convert_date(data[:ln])
-            data = data[ln:]
+            v, data = data[:ln], data[ln:]
+            v = _convert_date(v)
     elif type_id in (TIMENTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
-            v = _convert_time(data[:ln], precision)
-            data = data[ln:]
+            v, data = data[:ln], data[ln:]
+            v = _convert_time(v, precision)
     elif type_id in (SSVARIANTTYPE, ):
-        ln = _bytes_to_int(data[:4])
-        data = data[4:]
+        ln, data = _parse_int(data, 4)
         if ln == 0:
             v = None
         else:
