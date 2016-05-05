@@ -46,7 +46,7 @@ class TestMiniTds(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
 
-    def test_types(self):
+    def test_basic_types(self):
         cur = self.connection.cursor()
 
         cur.execute("""
@@ -63,6 +63,9 @@ class TestMiniTds(unittest.TestCase):
             list(cur.fetchone())
         )
 
+    def test_datetime_types(self):
+        cur = self.connection.cursor()
+
         cur.execute("""
             SELECT cast('1967-08-11' as date),
                 cast('12:34:56' as time),
@@ -72,6 +75,9 @@ class TestMiniTds(unittest.TestCase):
             [datetime.date(1967, 8, 11), datetime.time(12, 34, 56), datetime.datetime(1967, 8, 11, 12, 34, 56)],
             list(cur.fetchone())
         )
+
+    def test_string_types(self):
+        cur = self.connection.cursor()
 
         cur.execute("""
             SELECT
@@ -85,14 +91,17 @@ class TestMiniTds(unittest.TestCase):
             list(cur.fetchone())
         )
 
+    def test_variant_types(self):
+        cur = self.connection.cursor()
+
         cur.execute("""
             SELECT
                 SERVERPROPERTY('Collation'),
                 SERVERPROPERTY('CollationID')
         """)
         r = cur.fetchone()
-#        self.assertTrue(isinstance(r[0], str))
-#        self.assertTrue(isinstance(r[1], int))
+        self.assertTrue(isinstance(r[0], str))
+        self.assertTrue(isinstance(r[1], int))
 
 
     def test_autocommit(self):

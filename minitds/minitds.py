@@ -455,9 +455,28 @@ def _parse_uint(data, ln):
     return _bytes_to_uint(data[:ln]), data[ln:]
 
 
+def _parse_collation(data):
+    return data[:5], data[5:]
+
+
 def _parse_str(data, ln):
     slen, data = _parse_uint(data, ln)
     return _bytes_to_str(data[:slen*2]), data[slen*2:]
+
+
+def _parse_variant(data, ln):
+    data2, data = data[:ln], data[ln:]
+    type_id, data2 = _parse_byte(data2)
+    prop_bytes, data2 = _parse_byte(data2)
+
+    if type_id in (INT4TYPE, ):
+        v, data2 = _parse_int(data2, 4)
+    elif type_id in (NVARCHARTYPE, ):
+        _, data2 = _parse_collation(data2)
+        v, data2 = _parse_str(data2, 2)
+    else:
+        raise Error("_parse_variant() Unknown type %d" % type_id)
+    return v, data
 
 
 def parse_transaction_id(data):
@@ -499,7 +518,7 @@ def _parse_description_type(data):
         BIGCHARTYPE, BIGVARCHRTYPE, NCHARTYPE, NVARCHARTYPE, BIGVARCHRTYPE
     ):
         size, data = _parse_int(data, 2)
-        data = data[5:]     # skip collation
+        _, data = _parse_collation(data)
     elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE, TIMENTYPE):
         precision, data = _parse_byte(data)
     elif type_id in (SSVARIANTTYPE,):
@@ -657,9 +676,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         if ln == 0:
             v = None
         else:
-            # TODO:
-            v = None
-            data = data[ln:]
+            v, data = _parse_variant(data, ln)
     else:
         raise Error("_parse_column() Unknown type %d" % type_id)
 
