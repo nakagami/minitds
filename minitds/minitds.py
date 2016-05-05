@@ -220,17 +220,6 @@ TIMENTYPE = 41  # 0x29
 DATETIME2NTYPE = 42  # 0x2a
 DATETIMEOFFSETNTYPE = 43  # 0x2b
 
-FIXED_TYPE_MAP = {
-    # type_id: (size, precision, scale)}
-    INT1TYPE: (1, -1, -1),
-    BITTYPE: (1, -1, -1),
-    INT2TYPE: (2, -1, -1),
-    INT4TYPE: (4, -1, -1),
-    INT8TYPE: (8, -1, -1),
-    DATETIM4TYPE: (4, -1, -1),
-    DATETIMETYPE: (8, -1, -1),
-    DATENTYPE: (3, -1, -1),
-}
 
 _bin_version = b'\x00' + bytes(list(VERSION))
 
@@ -508,10 +497,19 @@ def _parse_description_type(data):
     flags, data = _parse_uint(data, 2)
     null_ok = (flags & 1) == 1
     type_id, data = _parse_byte(data)
+    size = {
+        INT1TYPE: 1,
+        BITTYPE: 1,
+        INT2TYPE: 2,
+        INT4TYPE: 4,
+        INT8TYPE: 8,
+        DATETIM4TYPE: 4,
+        DATETIMETYPE: 8,
+        DATENTYPE: 3,
+    }.get(type_id, 0)
 
-    fix_type = FIXED_TYPE_MAP.get(type_id)
-    if fix_type:
-        size, precision, scale = fix_type
+    if size != 0:
+        pass
     elif type_id in (
         BITNTYPE, INTNTYPE, FLTNTYPE, MONEYNTYPE, DATETIMNTYPE,
     ):
