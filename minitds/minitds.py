@@ -492,11 +492,12 @@ def parse_transaction_id(data):
 
 
 def _parse_description_type(data):
-    size = precision = scale = -1
     user_type, data = _parse_uint(data, 4)
     flags, data = _parse_uint(data, 2)
     null_ok = (flags & 1) == 1
     type_id, data = _parse_byte(data)
+
+    size = precision = scale = -1
     size = {
         INT1TYPE: 1,
         BITTYPE: 1,
