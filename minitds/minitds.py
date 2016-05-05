@@ -469,11 +469,21 @@ def _parse_variant(data, ln):
     type_id, data2 = _parse_byte(data2)
     prop_bytes, data2 = _parse_byte(data2)
 
-    if type_id in (INT4TYPE, ):
+    if type_id in (INT1TYPE, ):
+        v, data2 = _parse_int(data2, 1)
+    elif type_id in (INT2TYPE, ):
+        v, data2 = _parse_int(data2, 2)
+    elif type_id in (INT4TYPE, ):
         v, data2 = _parse_int(data2, 4)
     elif type_id in (NVARCHARTYPE, ):
         _, data2 = _parse_collation(data2)
         v, data2 = _parse_str(data2, 2)
+    elif type_id in (DATETIMETYPE, ):
+        d, data2 = _parse_int(data2, 4)
+        t, data2 = _parse_int(data2, 4)
+        ms = int(round(t % 300 * 10 / 3.0))
+        secs = t // 300
+        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
     else:
         raise Error("_parse_variant() Unknown type %d" % (type_id,))
     return v, data
