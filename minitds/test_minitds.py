@@ -40,7 +40,7 @@ class TestMiniTds(unittest.TestCase):
             user=self.user,
             password=self.password,
             database=self.database,
-            port=14333,
+            port=1433,
         )
 
     def tearDown(self):

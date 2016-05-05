@@ -970,7 +970,7 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=14333, lcid=1033, encoding='latin1', timeout=None):
+def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', timeout=None):
     return Connection(user, password, database, host, isolation_level, port, lcid, encoding, timeout)
 
 
