@@ -475,7 +475,7 @@ def _parse_variant(data, ln):
         _, data2 = _parse_collation(data2)
         v, data2 = _parse_str(data2, 2)
     else:
-        raise Error("_parse_variant() Unknown type %d" % type_id)
+        raise Error("_parse_variant() Unknown type %d" % (type_id,))
     return v, data
 
 
@@ -678,7 +678,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             v, data = _parse_variant(data, ln)
     else:
-        raise Error("_parse_column() Unknown type %d" % type_id)
+        raise Error("_parse_column() Unknown type %d" % (type_id,))
 
     return v, data
 

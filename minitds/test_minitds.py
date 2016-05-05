@@ -97,11 +97,21 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("""
             SELECT
                 SERVERPROPERTY('Collation'),
-                SERVERPROPERTY('CollationID')
+                SERVERPROPERTY('CollationID'),
+                SERVERPROPERTY('EditionID'),
+                SERVERPROPERTY('EngineEdition'),
+                SERVERPROPERTY('HadrManagerStatus'),
+                SERVERPROPERTY('SqlCharSet'),
+                SERVERPROPERTY('ResourceLastUpdateDateTime')
         """)
         r = cur.fetchone()
         self.assertTrue(isinstance(r[0], str))
         self.assertTrue(isinstance(r[1], int))
+        self.assertTrue(isinstance(r[2], int))
+        self.assertTrue(isinstance(r[3], int))
+        self.assertTrue(isinstance(r[4], int))
+        self.assertTrue(isinstance(r[5], int))
+        self.assertTrue(isinstance(r[6], datetime.datetime))
 
 
     def test_autocommit(self):
