@@ -144,6 +144,7 @@ class UTC(datetime.tzinfo):
 
 
 # -----------------------------------------------------------------------------
+BUFSIZE = 4096
 
 ISOLATION_LEVEL_READ_UNCOMMITTED = 1
 ISOLATION_LEVEL_READ_COMMITTED = 2
@@ -340,7 +341,7 @@ def get_login_bytes(host, user, password, database, lcid):
     buf = b''
     buf += _int_to_4bytes(packet_size)
     buf += b'\x04\x00\x00\x74'   # TDS 7.4
-    buf += _int_to_4bytes(16384)
+    buf += _int_to_4bytes(BUFSIZE)
     buf += _bin_version
     buf += _int_to_4bytes(os.getpid())
     buf += _int_to_4bytes(0)            # connection id
@@ -845,9 +846,9 @@ class Connection(object):
         self._packet_id = 0
         self._open()
 
-        self._send_message(TDS_PRELOGIN, True, get_prelogin_bytes())
+        self._send_message(TDS_PRELOGIN, get_prelogin_bytes())
         self._read_response_packet()
-        self._send_message(TDS_LOGIN, True, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
+        self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
         self.begin()
 
@@ -885,13 +886,25 @@ class Connection(object):
 
         return t, status, spid, self._read(ln)
 
-    def _send_message(self, message_type, is_final, buf):
+    def _send_message(self, message_type, buf):
+        data, buf = buf[:BUFSIZE-8], buf[BUFSIZE-8:]
+        while buf:
+            self._write(
+                bytes([message_type, 0]) +
+                _bint_to_2bytes(8 + len(data)) +
+                _bint_to_2bytes(0) +
+                bytes([self._packet_id, 0]) +
+                data
+            )
+            self._packet_id = (self._packet_id + 1) % 256
+            data, buf = buf[:BUFSIZE-8], buf[BUFSIZE-8:]
+
         self._write(
-            bytes([message_type, 1 if is_final else 0]) +
-            _bint_to_2bytes(8 + len(buf)) +
+            bytes([message_type, 1]) +
+            _bint_to_2bytes(8 + len(data)) +
             _bint_to_2bytes(0) +
             bytes([self._packet_id, 0]) +
-            buf
+            data
         )
         self._packet_id = (self._packet_id + 1) % 256
 
@@ -909,7 +922,7 @@ class Connection(object):
         return Cursor(self)
 
     def _execute(self, query):
-        self._send_message(TDS_SQL_BATCH, True, get_query_bytes(query, self.transaction_id))
+        self._send_message(TDS_SQL_BATCH, get_query_bytes(query, self.transaction_id))
         token, status, spid, data = self._read_response_packet()
         while status == 0:
             token, status, spid, more_data = self._read_response_packet()
@@ -937,17 +950,17 @@ class Connection(object):
 
 
     def begin(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = parse_transaction_id(data)
 
     def commit(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_COMMIT_XACT, self.isolation_level, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_COMMIT_XACT, self.isolation_level, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
     def rollback(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, True, get_trans_request_bytes(TM_ROLLBACK_XACT, self.isolation_level, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_ROLLBACK_XACT, self.isolation_level, self.transaction_id))
         self._read_response_packet()
         self.begin()
 
