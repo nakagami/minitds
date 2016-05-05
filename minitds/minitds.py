@@ -455,6 +455,11 @@ def _parse_uint(data, ln):
     return _bytes_to_uint(data[:ln]), data[ln:]
 
 
+def _parse_str(data, ln):
+    slen, data = _parse_uint(data, ln)
+    return _bytes_to_str(data[:slen*2]), data[slen*2:]
+
+
 def parse_transaction_id(data):
     "return transaction_id"
     t, data = _parse_byte(data)
@@ -469,51 +474,40 @@ def parse_transaction_id(data):
 
 def _parse_description_type(data):
     size = precision = scale = -1
-    user_type = _bytes_to_uint(data[:4])
-    flags = _bytes_to_uint(data[4:6])
-    type_id = data[6]
+    user_type, data = _parse_uint(data, 4)
+    flags, data = _parse_uint(data, 2)
+    type_id, data = _parse_byte(data)
 
     fix_type = FIXED_TYPE_MAP.get(type_id)
     if fix_type:
         size, precision, scale = fix_type
-        data = data[7:]
     elif type_id in (
         BITNTYPE, INTNTYPE, FLTNTYPE, MONEYNTYPE, DATETIMNTYPE,
     ):
-        size = data[7]
-        data = data[8:]
+        size, data = _parse_byte(data)
     elif type_id in (IMAGETYPE, TEXTTYPE):
-        size = _bytes_to_int(data[7])
-        table_name_ln = _bytes_to_int(data[11:13])
-        data = data[13:]
-        table_name = _bytes_to_str(data[:1+tale_name_ln*2])
-        data = data[table_name_ln*2:]
+        size, data = _parse_byte(data)
+        _, data = _parse_int(data, 4)
+        tab_name, data = _parse_str(data, 2)
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
-        size = data[7]
-        precision = data[8]
-        scale = data[9]
-        data = data[10:]
+        size, data = _parse_byte(data)
+        precision, data = _parse_byte(data)
+        scale, data = _parse_byte(data)
     elif type_id in (SYBVARBINARY,):
-        size = _bytes_to_uint(data[7:9])
-        data = date[9:]
+        size, data = _parse_int(data, 2)
     elif type_id in (
         BIGCHARTYPE, BIGVARCHRTYPE, NCHARTYPE, NVARCHARTYPE, BIGVARCHRTYPE
     ):
-        size = _bytes_to_uint(data[7:9])
-        # skip collation
-        data = data[9+5:]
+        size, data = _parse_int(data, 2)
+        data = data[5:]     # skip collation
     elif type_id in (DATETIME2NTYPE, DATETIMEOFFSETNTYPE, TIMENTYPE):
-        precision = data[7]
-        data = data[8:]
+        precision, data = _parse_byte(data)
     elif type_id in (SSVARIANTTYPE,):
-        size = _bytes_to_int(data[7:11])
-        data = data[11:]
+        size, data = _parse_int(data, 4)
     else:
         print("_parse_description_type() Unknown type_id:", type_id)
 
-    ln = data[0]
-    name = _bytes_to_str(data[1:1+ln*2])
-    data = data[1+ln*2:]
+    name, data = _parse_str(data, 1)
     return type_id, name, size, precision, scale, True, data
 
 
