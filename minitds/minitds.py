@@ -680,12 +680,14 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             v = None
             data = data[ln:]
     else:
-        raise Error("parse_row() Unknown type %d" % type_id)
+        raise Error("_parse_column() Unknown type %d" % type_id)
 
     return v, data
 
 
 def parse_row(description, encoding, data):
+    t, data = _parse_byte(data)
+    assert t == TDS_ROW_TOKEN
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
         v, data = _parse_column(type_id, size, precision, scale, encoding, data)
@@ -913,7 +915,7 @@ class Connection(object):
             description = []
         rows = []
         while data[0] == TDS_ROW_TOKEN:
-            row, data = parse_row(description, self.encoding, data[1:])
+            row, data = parse_row(description, self.encoding, data)
             rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
         if self.autocommit:
