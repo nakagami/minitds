@@ -525,164 +525,170 @@ def parse_description(data):
     return description, data
 
 
-def parse_row(description, data, encoding):
-    row = []
-    for _, type_id, size, _, precision, scale, _ in description:
-        if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
+def _parse_column(type_id, size, precision, scale, encoding, data):
+    if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
+        v = _bytes_to_int(data[:size])
+        data = data[size:]
+    elif type_id in (BITNTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
+            v = bool(_bytes_to_int(data[:size]))
+            data = data[size:]
+    elif type_id in (INTNTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
             v = _bytes_to_int(data[:size])
             data = data[size:]
-        elif type_id in (BITNTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                assert ln == size
-                v = bool(_bytes_to_int(data[:size]))
-                data = data[size:]
-        elif type_id in (INTNTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                assert ln == size
-                v = _bytes_to_int(data[:size])
-                data = data[size:]
-        elif type_id in (MONEYNTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                assert ln == size
-                hi = _bytes_to_int(data[:ln//2])
-                lo = _bytes_to_uint(data[ln//2:ln])
-                v = decimal.Decimal(hi * (2**32) + lo) / 10000
-                data = data[ln:]
-        elif type_id in (FLTNTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                assert ln == size
-                v = struct.unpack('<d' if ln == 8 else '<f', data[:size])[0]
-                data = data[size:]
-        elif type_id in (IMAGETYPE, TEXTTYPE):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                ln = _bytes_to_int(data[24:28])
-                data = data[28:]
-                v = data[:ln]
-                data = data[ln:]
-                if type_id == TEXTTYPE:
-                    v = _bytes_to_str(v)
-        elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
-            ln = data[0]
-            data = data[1:]
-            positive = data[0]
-            v = decimal.Decimal(_bytes_to_int(data[1:ln]))
-            if not positive:
-                v *= -1
-            v /= 10 ** scale
+    elif type_id in (MONEYNTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
+            hi = _bytes_to_int(data[:ln//2])
+            lo = _bytes_to_uint(data[ln//2:ln])
+            v = decimal.Decimal(hi * (2**32) + lo) / 10000
             data = data[ln:]
-        elif type_id in (SYBVARBINARY, ):
-            ln = _bytes_to_uint(data[:2])
-            data = data[2:]
-            if ln == 0xFFFF:
-                v = None
-            else:
-                v = data[:ln]
-                data = data[ln:]
-        elif type_id in (NCHARTYPE, NVARCHARTYPE):
-            ln = _bytes_to_int(data[:2])
-            data = data[2:]
-            if ln < 0:
-                v = None
-            else:
-                v = _bytes_to_str(data[:ln])
-                data = data[ln:]
-        elif type_id in (BIGCHARTYPE, BIGVARCHRTYPE):
-            ln = _bytes_to_int(data[:2])
-            data = data[2:]
-            if ln < 0:
-                v = None
-            else:
-                v = data[:ln].decode(encoding)
-                data = data[ln:]
-        elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
-            d = _bytes_to_int(data[:size//2])
-            t = _bytes_to_int(data[size//2:size])
+    elif type_id in (FLTNTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
+            v = struct.unpack('<d' if ln == 8 else '<f', data[:size])[0]
             data = data[size:]
+    elif type_id in (IMAGETYPE, TEXTTYPE):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            ln = _bytes_to_int(data[24:28])
+            data = data[28:]
+            v = data[:ln]
+            data = data[ln:]
+            if type_id == TEXTTYPE:
+                v = _bytes_to_str(v)
+    elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
+        ln = data[0]
+        data = data[1:]
+        positive = data[0]
+        v = decimal.Decimal(_bytes_to_int(data[1:ln]))
+        if not positive:
+            v *= -1
+        v /= 10 ** scale
+        data = data[ln:]
+    elif type_id in (SYBVARBINARY, ):
+        ln = _bytes_to_uint(data[:2])
+        data = data[2:]
+        if ln == 0xFFFF:
+            v = None
+        else:
+            v = data[:ln]
+            data = data[ln:]
+    elif type_id in (NCHARTYPE, NVARCHARTYPE):
+        ln = _bytes_to_int(data[:2])
+        data = data[2:]
+        if ln < 0:
+            v = None
+        else:
+            v = _bytes_to_str(data[:ln])
+            data = data[ln:]
+    elif type_id in (BIGCHARTYPE, BIGVARCHRTYPE):
+        ln = _bytes_to_int(data[:2])
+        data = data[2:]
+        if ln < 0:
+            v = None
+        else:
+            v = data[:ln].decode(encoding)
+            data = data[ln:]
+    elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
+        d = _bytes_to_int(data[:size//2])
+        t = _bytes_to_int(data[size//2:size])
+        data = data[size:]
+        ms = int(round(t % 300 * 10 / 3.0))
+        secs = t // 300
+        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+    elif type_id in (DATETIME2NTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            t = _convert_time(data[:ln-3], precision)
+            d = _convert_date(data[ln-3:ln])
+            v = datetime.datetime.combine(d, t)
+            data = data[ln:]
+    elif type_id in (DATETIMNTYPE,):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
+            d = _bytes_to_int(data[:ln//2])
+            t = _bytes_to_int(data[ln//2:ln])
             ms = int(round(t % 300 * 10 / 3.0))
             secs = t // 300
             v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
-        elif type_id in (DATETIME2NTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                t = _convert_time(data[:ln-3], precision)
-                d = _convert_date(data[ln-3:ln])
-                v = datetime.datetime.combine(d, t)
-                data = data[ln:]
-        elif type_id in (DATETIMNTYPE,):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                assert ln == size
-                d = _bytes_to_int(data[:ln//2])
-                t = _bytes_to_int(data[ln//2:ln])
-                ms = int(round(t % 300 * 10 / 3.0))
-                secs = t // 300
-                v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
-                data = data[ln:]
-        elif type_id in (DATETIMEOFFSETNTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                t = _convert_time(data[:ln-5], precision)
-                d = _convert_date(data[ln-5:ln-2])
-                tz_offset = _bytes_to_int(data[ln-2:ln])
-                v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
-                v = v.replace(tzinfo=UTC())
-                data = data[ln:]
-        elif type_id in (DATENTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                v = _convert_date(data[:ln])
-                data = data[ln:]
-        elif type_id in (TIMENTYPE, ):
-            ln = data[0]
-            data = data[1:]
-            if ln == 0:
-                v = None
-            else:
-                v = _convert_time(data[:ln], precision)
-                data = data[ln:]
-        elif type_id in (SSVARIANTTYPE, ):
-            ln = _bytes_to_int(data[:4])
-            data = data[4:]
-            if ln == 0:
-                v = None
-            else:
-                # TODO:
-                v = None
-                data = data[ln:]
+            data = data[ln:]
+    elif type_id in (DATETIMEOFFSETNTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
         else:
-            print("parse_row() Unknown type", type_id)
+            t = _convert_time(data[:ln-5], precision)
+            d = _convert_date(data[ln-5:ln-2])
+            tz_offset = _bytes_to_int(data[ln-2:ln])
+            v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
+            v = v.replace(tzinfo=UTC())
+            data = data[ln:]
+    elif type_id in (DATENTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            v = _convert_date(data[:ln])
+            data = data[ln:]
+    elif type_id in (TIMENTYPE, ):
+        ln = data[0]
+        data = data[1:]
+        if ln == 0:
+            v = None
+        else:
+            v = _convert_time(data[:ln], precision)
+            data = data[ln:]
+    elif type_id in (SSVARIANTTYPE, ):
+        ln = _bytes_to_int(data[:4])
+        data = data[4:]
+        if ln == 0:
+            v = None
+        else:
+            # TODO:
+            v = None
+            data = data[ln:]
+    else:
+        raise Error("parse_row() Unknown type %d" % type_id)
+
+    return v, data
+
+
+def parse_row(description, encoding, data):
+    row = []
+    for _, type_id, size, _, precision, scale, _ in description:
+        v, data = _parse_column(type_id, size, precision, scale, encoding, data)
         row.append(v)
     return row, data
 
@@ -907,7 +913,7 @@ class Connection(object):
             description = []
         rows = []
         while data[0] == TDS_ROW_TOKEN:
-            row, data = parse_row(description, data[1:], self.encoding)
+            row, data = parse_row(description, self.encoding, data[1:])
             rows.append(row)
         assert data[0] == TDS_DONE_TOKEN
         if self.autocommit:
