@@ -527,95 +527,80 @@ def parse_description(data):
 
 def _parse_column(type_id, size, precision, scale, encoding, data):
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
-        v = _bytes_to_int(data[:size])
-        data = data[size:]
+        v, data = _parse_int(data, size)
     elif type_id in (BITNTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
             assert ln == size
-            v = bool(_bytes_to_int(data[:size]))
-            data = data[size:]
+            v, data = _parse_int(data, ln)
+            v = bool(v)
     elif type_id in (INTNTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
             assert ln == size
-            v = _bytes_to_int(data[:size])
-            data = data[size:]
+            v, data = _parse_int(data, ln)
     elif type_id in (MONEYNTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
             assert ln == size
-            hi = _bytes_to_int(data[:ln//2])
-            lo = _bytes_to_uint(data[ln//2:ln])
+            hi, data = _parse_int(data, ln // 2)
+            lo, data = _parse_uint(data, ln // 2)
             v = decimal.Decimal(hi * (2**32) + lo) / 10000
-            data = data[ln:]
     elif type_id in (FLTNTYPE, ):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
             assert ln == size
-            v = struct.unpack('<d' if ln == 8 else '<f', data[:size])[0]
-            data = data[size:]
+            v, data = data[:size], data[size:]
+            v = struct.unpack('<d' if ln == 8 else '<f', v)[0]
     elif type_id in (IMAGETYPE, TEXTTYPE):
-        ln = data[0]
-        data = data[1:]
+        ln, data = _parse_byte(data)
         if ln == 0:
             v = None
         else:
-            ln = _bytes_to_int(data[24:28])
-            data = data[28:]
-            v = data[:ln]
-            data = data[ln:]
+            ln, data = _parse_int(data, 4)
+            v, data = data[:ln], data[ln:]
             if type_id == TEXTTYPE:
                 v = _bytes_to_str(v)
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
-        ln = data[0]
-        data = data[1:]
-        positive = data[0]
-        v = decimal.Decimal(_bytes_to_int(data[1:ln]))
+        ln, data = _parse_byte(data)
+        positive, data = _parse_byte(data)
+        v, data = _parse_int(data, ln - 1)
+        v = decimal.Decimal(v)
         if not positive:
             v *= -1
         v /= 10 ** scale
-        data = data[ln:]
     elif type_id in (SYBVARBINARY, ):
-        ln = _bytes_to_uint(data[:2])
-        data = data[2:]
+        ln, data = _parse_uint(data, 2)
         if ln == 0xFFFF:
             v = None
         else:
-            v = data[:ln]
-            data = data[ln:]
+            v, data = data[:ln], data[ln:]
     elif type_id in (NCHARTYPE, NVARCHARTYPE):
-        ln = _bytes_to_int(data[:2])
-        data = data[2:]
+        ln, data = _parse_int(data, 2)
         if ln < 0:
             v = None
         else:
-            v = _bytes_to_str(data[:ln])
-            data = data[ln:]
+            v, data = data[:ln], data[ln:]
+            v = _bytes_to_str(v)
     elif type_id in (BIGCHARTYPE, BIGVARCHRTYPE):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
         if ln < 0:
             v = None
         else:
-            v = data[:ln].decode(encoding)
-            data = data[ln:]
+            v, data = data[:ln], data[ln:]
+            v = v.decode(encoding)
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
-        d = _bytes_to_int(data[:size//2])
-        t = _bytes_to_int(data[size//2:size])
-        data = data[size:]
+        d, data = _parse_int(size // 2)
+        t, data = _parse_int(size // 2)
         ms = int(round(t % 300 * 10 / 3.0))
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
