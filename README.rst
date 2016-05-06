@@ -55,4 +55,4 @@ Not support SSL encryption.
 
    I want someone's help.
 
-Not support Procedure call.
+Not support Stored Procedure call.
