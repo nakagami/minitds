@@ -45,6 +45,15 @@ def asc_dump(s):
     if r:
         print('\t[' + r + ']')
 
+def recv_from_sock(sock, nbytes):
+    n = nbytes
+    recieved = b''
+    while n:
+        bs = sock.recv(n)
+        recieved += bs
+        n -= len(bs)
+    return recieved
+
 
 def proxy_wire(server_name, server_port, listen_host, listen_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,26 +64,24 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
     server_sock.connect((server_name, server_port))
 
     while True:
-        client_head = client_sock.recv(8)
-        if len(client_head) == 0:
-            break
+        client_head = recv_from_sock(client_sock, 8)
         t = client_head[0]
         status = client_head[1]
         ln = int.from_bytes(client_head[2:4], byteorder='big')
         spid = int.from_bytes(client_head[4:6], byteorder='big')
-        client_body = client_sock.recv(ln)
+        client_body = recv_from_sock(client_sock, ln-8)
         server_sock.send(client_head)
         server_sock.send(client_body)
         print("<<%s:%d, len=%d spid=%d %s data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_head[6:]).decode('ascii'), binascii.b2a_hex(client_body).decode('ascii')))
         if TDS_NAME[t] == 'TDS_SQL_BATCH':
             asc_dump(client_body)
 
-        server_head = server_sock.recv(8)
+        server_head = recv_from_sock(server_sock, 8)
         t = server_head[0]
         status = server_head[1]
         ln = int.from_bytes(server_head[2:4], byteorder='big')
         spid = int.from_bytes(server_head[4:6], byteorder='big')
-        server_body = server_sock.recv(ln)
+        server_body = recv_from_sock(server_sock, ln-8)
         client_sock.send(server_head)
         client_sock.send(server_body)
         print(">>%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(server_body), spid, binascii.b2a_hex(server_body).decode('ascii')))
