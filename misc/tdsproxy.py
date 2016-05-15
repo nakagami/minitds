@@ -38,9 +38,9 @@ TDS_NAME = {
 }
 
 
-def asc_dump(s):
+def asc_dump(bindata):
     r = ''
-    for c in s:
+    for c in bindata:
         r += chr(c) if (c >= 32 and c < 128) else '.'
     if r:
         print('\t[' + r + ']')
@@ -69,10 +69,17 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
         status = client_head[1]
         ln = int.from_bytes(client_head[2:4], byteorder='big')
         spid = int.from_bytes(client_head[4:6], byteorder='big')
+
         client_body = recv_from_sock(client_sock, ln-8)
+
+        if TDS_NAME[t] == 'TDS_PRELOGIN' and client_body[0] == 0x16:
+            print("<<SSL_handshake(%s):%d, len=%d spid=%d %s data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_head[6:]).decode('ascii'), binascii.b2a_hex(client_body).decode('ascii')))
+        else:
+            print("<<%s:%d, len=%d spid=%d %s data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_head[6:]).decode('ascii'), binascii.b2a_hex(client_body).decode('ascii')))
+
         server_sock.send(client_head)
         server_sock.send(client_body)
-        print("<<%s:%d, len=%d spid=%d %s data=%s" % (TDS_NAME[t], status, len(client_body), spid, binascii.b2a_hex(client_head[6:]).decode('ascii'), binascii.b2a_hex(client_body).decode('ascii')))
+
         if TDS_NAME[t] == 'TDS_SQL_BATCH':
             asc_dump(client_body)
 
@@ -81,11 +88,17 @@ def proxy_wire(server_name, server_port, listen_host, listen_port):
         status = server_head[1]
         ln = int.from_bytes(server_head[2:4], byteorder='big')
         spid = int.from_bytes(server_head[4:6], byteorder='big')
+
         server_body = recv_from_sock(server_sock, ln-8)
+
+        if TDS_NAME[t] == 'TDS_PRELOGIN' and server_body[0] == 0x16:
+            print(">>SSL_handshake(%s):%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(server_body), spid, binascii.b2a_hex(server_body).decode('ascii')))
+        else:
+            print(">>%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(server_body), spid, binascii.b2a_hex(server_body).decode('ascii')))
+            asc_dump(server_body)
+
         client_sock.send(server_head)
         client_sock.send(server_body)
-        print(">>%s:%d, len=%d spid=%d data=%s" % (TDS_NAME[t], status, len(server_body), spid, binascii.b2a_hex(server_body).decode('ascii')))
-        asc_dump(server_body)
 
 
 if __name__ == '__main__':
