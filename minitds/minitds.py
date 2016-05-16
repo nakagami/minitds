@@ -33,6 +33,7 @@ import time
 import binascii
 import uuid
 import struct
+import ssl
 from argparse import ArgumentParser
 
 VERSION = (0, 1, 0)
@@ -285,7 +286,7 @@ def _convert_date(b):
     return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
-def get_prelogin_bytes(instance_name="MSSQLServer"):
+def get_prelogin_bytes(use_ssl, instance_name="MSSQLServer"):
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
     # version
@@ -309,7 +310,13 @@ def get_prelogin_bytes(instance_name="MSSQLServer"):
     assert len(buf) == 26
 
     buf += _bin_version + _bint_to_2bytes(0)
-    buf += b'\x02'  # not encryption
+    if use_ssl is None:
+        buf += b'\x03'  # ENCRYPT_REQ
+    elif use_ssl:
+        buf += b'\x01'  # ENCRYPT_ON
+    else:
+        buf += b'\x02'  # ENCRYPT_NOT_SUP
+
     buf += instance_name
     buf += _bint_to_4bytes(0)   # TODO: thread id
     buf += b'\x00'              # not use MARS
@@ -736,6 +743,7 @@ def escape_parameter(self, v):
     else:
         return "'" + str(v) + "'"
 
+
 class Cursor(object):
     def __init__(self, connection):
         self.connection = connection
@@ -832,7 +840,7 @@ class Cursor(object):
 
 
 class Connection(object):
-    def __init__(self, user, password, database, host, isolation_level, port, lcid, encoding, timeout):
+    def __init__(self, user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout):
         self.user = user
         self.password = password
         self.database = database
@@ -841,17 +849,26 @@ class Connection(object):
         self.port = port
         self.lcid = lcid
         self.encoding = encoding
+        self.use_ssl = use_ssl
         self.timeout = timeout
         self.autocommit = False
         self._packet_id = 0
-        self._open()
 
-        self._send_message(TDS_PRELOGIN, get_prelogin_bytes())
-        self._read_response_packet()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.host, self.port))
+        if self.timeout is not None:
+            self.sock.settimeout(float(self.timeout))
+
+        self._send_message(TDS_PRELOGIN, get_prelogin_bytes(use_ssl))
+        _, _, _, body = self._read_response_packet()
+
+        if body[32] == 1:
+            # TODO
+            self.sock = ssl.wrap_socket(sock=self.sock)
+
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
         self.begin()
-
 
     def __enter__(self):
         return self
@@ -879,12 +896,12 @@ class Connection(object):
 
     def _read_response_packet(self):
         b = self._read(8)
-        t = b[0]
+        tag = b[0]
         status = b[1]
         ln = _bytes_to_bint(b[2:4]) - 8
         spid = _bytes_to_bint(b[4:6])
 
-        return t, status, spid, self._read(ln)
+        return tag, status, spid, self._read(ln)
 
     def _send_message(self, message_type, buf):
         data, buf = buf[:BUFSIZE-8], buf[BUFSIZE-8:]
@@ -907,13 +924,6 @@ class Connection(object):
             data
         )
         self._packet_id = (self._packet_id + 1) % 256
-
-    def _open(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
-
-        if self.timeout is not None:
-            self.sock.settimeout(float(self.timeout))
 
     def is_connect(self):
             return bool(self.sock)
@@ -970,8 +980,8 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', timeout=None):
-    return Connection(user, password, database, host, isolation_level, port, lcid, encoding, timeout)
+def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+    return Connection(user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
 def output_results(conn, query, with_header=True, separator="\t", null='null', file=sys.stdout):
