@@ -863,8 +863,11 @@ class Connection(object):
         _, _, _, body = self._read_response_packet()
 
         if body[32] == 1:
+            incoming = ssl.MemoryBIO()
+            outgoing = ssl.MemoryBIO()
+            sock = self.sock
+            self.sock = ssl.wrap_bio(incoming, outgoing)
             # TODO
-            self.sock = ssl.wrap_socket(sock=self.sock)
 
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
@@ -980,7 +983,7 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=False, timeout=None):
     return Connection(user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
