@@ -840,6 +840,27 @@ class Cursor(object):
 
 
 class Connection(object):
+    def _do_ssl_handshake(self):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        incoming = ssl.MemoryBIO()
+        outgoing = ssl.MemoryBIO()
+
+        sslobj = context.wrap_bio(incoming, outgoing, False)
+
+        # do_handshake()
+        while True:
+            errno = None
+            try:
+                sslobj.do_handshake()
+            except ssl.SSLWantReadError:
+                self._send_message(TDS_PRELOGIN, outgoing.read())
+                _, _, _, buf = self._read_response_packet()
+                incoming.write(buf)
+            else:
+                break
+
+        return sslobj, incoming, outgoing
+
     def __init__(self, user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout):
         self.user = user
         self.password = password
@@ -853,6 +874,7 @@ class Connection(object):
         self.timeout = timeout
         self.autocommit = False
         self._packet_id = 0
+        self.sslobj = self.incoming = self.outgoing = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.host, self.port))
@@ -863,11 +885,7 @@ class Connection(object):
         _, _, _, body = self._read_response_packet()
 
         if body[32] == 1:
-            incoming = ssl.MemoryBIO()
-            outgoing = ssl.MemoryBIO()
-            sock = self.sock
-            self.sock = ssl.wrap_bio(incoming, outgoing)
-            # TODO
+            self.sslobj, self.incoming, self.outgoing = self._do_ssl_handshake()
 
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
@@ -882,17 +900,31 @@ class Connection(object):
     def _read(self, ln):
         if not self.sock:
             raise OperationalError("Lost connection")
-        r = b''
-        while len(r) < ln:
-            b = self.sock.recv(ln-len(r))
-            if not b:
-                raise OperationalError("Can't recv packets")
-            r += b
+        if self.sslobj:
+            while True:
+                try:
+                    r = self.sslobj.read(ln)
+                except ssl.SSLWantReadError:
+                    b = self.sock.recv(32768)
+                    self.incoming.write(b)
+                    continue
+                break
+        else:
+            r = b''
+            while len(r) < ln:
+                b = self.sock.recv(ln-len(r))
+                if not b:
+                    raise OperationalError("Can't recv packets")
+                r += b
         return r
 
     def _write(self, b):
         if not self.sock:
             raise OperationalError("Lost connection")
+        if self.sslobj:
+            self.sslobj.write(b)
+            b = self.outgoing.read()
+
         n = 0
         while (n < len(b)):
             n += self.sock.send(b[n:])
@@ -983,7 +1015,7 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=False, timeout=None):
+def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
     return Connection(user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
