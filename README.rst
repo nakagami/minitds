@@ -45,14 +45,7 @@ Query::
       print(r[0], r[1])
    conn.close()
 
-Restrictions
+Restriction
 ----------------
 
-Not support SSL encryption.
-
-   I don't understand how to negotiate SSL handshake in TDS protocol.
-   https://msdn.microsoft.com/en-us/library/dd357559.aspx
-
-   I want someone's help.
-
-Not support Stored Procedure call.
+Not support Stored Procedure call now.
