@@ -849,7 +849,6 @@ class Connection(object):
 
         # do_handshake()
         while True:
-            errno = None
             try:
                 sslobj.do_handshake()
             except ssl.SSLWantReadError:
