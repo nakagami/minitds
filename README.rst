@@ -45,7 +45,8 @@ Query::
       print(r[0], r[1])
    conn.close()
 
-Restriction
+Restrictions
 ----------------
 
-Not support Stored Procedure call now.
+- Support SQL Server User Authentication only.
+- Not support Stored Procedure call now.
