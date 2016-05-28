@@ -853,7 +853,8 @@ class Connection(object):
                 sslobj.do_handshake()
             except ssl.SSLWantReadError:
                 self._send_message(TDS_PRELOGIN, outgoing.read())
-                _, _, _, buf = self._read_response_packet()
+                tag, _, _, buf = self._read_response_packet()
+                assert tag == TDS_PRELOGIN
                 incoming.write(buf)
             else:
                 break
