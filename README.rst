@@ -8,7 +8,7 @@ Requirements
 -----------------
 
 - Python 3.5
-- MS SQLServer 2016
+- MS SQLServer 2012, 2014, 2016
 
 
 Installation
