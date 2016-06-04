@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 ##############################################################################
+import os
 import unittest
 import datetime
 import decimal
@@ -29,10 +30,11 @@ import minitds
 
 
 class TestMiniTds(unittest.TestCase):
-    host = 'localhost'
-    user = 'sa'
-    password = 'secret'
-    database = 'test'
+    host = os.environ.get('TEST_MINITDS_HOST', 'localhost')
+    user = os.environ.get('TEST_MINITDS_USER', 'sa')
+    password = os.environ.get('TEST_MINITDS_PASSWORD', 'secret')
+    database = os.environ.get('TEST_MINITDS_DATABASE', 'test')
+    port = int(os.environ.get('TEST_MINITDS_PORT', '1433'))
 
     def setUp(self):
         self.connection = minitds.connect(
@@ -40,7 +42,7 @@ class TestMiniTds(unittest.TestCase):
             user=self.user,
             password=self.password,
             database=self.database,
-            port=1433,
+            port=self.port,
         )
 
     def tearDown(self):
