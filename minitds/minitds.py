@@ -573,7 +573,6 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             assert ln == size
             v, data = _parse_int(data, ln)
-            v = bool(v)
     elif type_id in (INTNTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:

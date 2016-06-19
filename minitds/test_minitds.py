@@ -93,6 +93,15 @@ class TestMiniTds(unittest.TestCase):
             list(cur.fetchone())
         )
 
+    def test_bit_type(self):
+        cur = self.connection.cursor()
+
+        cur.execute("SELECT cast(1 as BIT), cast(0 as BIT)")
+        self.assertEqual(
+            [1, 0],
+            list(cur.fetchone())
+        )
+
     def test_variant_types(self):
         cur = self.connection.cursor()
 
