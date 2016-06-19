@@ -718,7 +718,7 @@ def parse_error(data):
 
 # -----------------------------------------------------------------------------
 
-def escape_parameter(self, v):
+def escape_parameter(v):
     if v is None:
         return 'NULL'
 
