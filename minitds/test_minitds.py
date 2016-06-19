@@ -159,6 +159,9 @@ class TestMiniTds(unittest.TestCase):
             [False, False, True, False, True],
             [d[6] for d in cur.description]
         )
+        cur.execute("insert into test_null_ok (a, c) values (1, 'c')")
+        cur.execute("select id, a, b, c, d from test_null_ok")
+        self.assertEqual(len(cur.fetchall()), 1)
 
     def test_large_results(self):
         cur = self.connection.cursor()

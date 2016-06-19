@@ -176,6 +176,7 @@ TDS_TOKEN_COLMETADATA = 0x81
 TDS_ERROR_TOKEN = 0xAA
 TDS_TOKEN_ENVCHANGE = 0xE3
 TDS_ROW_TOKEN = 0xD1
+TDS_NBCROW_TOKEN = 0xD2
 TDS_DONE_TOKEN = 0xFD
 
 # Column type
@@ -704,9 +705,27 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
 def parse_row(description, encoding, data):
     t, data = _parse_byte(data)
     assert t == TDS_ROW_TOKEN
+
     row = []
     for _, type_id, size, _, precision, scale, _ in description:
         v, data = _parse_column(type_id, size, precision, scale, encoding, data)
+        row.append(v)
+    return row, data
+
+def parse_nbcrow(description, encoding, data):
+    t, data = _parse_byte(data)
+    assert t == TDS_NBCROW_TOKEN
+
+    null_bitmap_len = (len(description) + 7) // 8
+    null_bitmap = data[:null_bitmap_len]
+    data = data[null_bitmap_len:]
+
+    row = []
+    for i, (_, type_id, size, _, precision, scale, _) in enumerate(description):
+        if null_bitmap[i // 8] & (1 << (i % 8)):
+            v = None
+        else:
+            v, data = _parse_column(type_id, size, precision, scale, encoding, data)
         row.append(v)
     return row, data
 
@@ -980,10 +999,14 @@ class Connection(object):
         else:
             description = []
         rows = []
-        while data[0] == TDS_ROW_TOKEN:
-            row, data = parse_row(description, self.encoding, data)
+        while data[0] in (TDS_ROW_TOKEN, TDS_NBCROW_TOKEN):
+            if data[0] == TDS_ROW_TOKEN:
+                row, data = parse_row(description, self.encoding, data)
+            elif data[0] == TDS_NBCROW_TOKEN:
+                row, data = parse_nbcrow(description, self.encoding, data)
+            else:
+                assert False
             rows.append(row)
-        assert data[0] == TDS_DONE_TOKEN
         if self.autocommit:
             self.commit()
 
