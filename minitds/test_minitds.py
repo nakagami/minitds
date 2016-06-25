@@ -188,6 +188,11 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select * from test_large_results")
         self.assertEqual(len(cur.fetchall()), 30)
 
+    def test_error(self):
+        cur = self.connection.cursor()
+        with self.assertRaises(minitds.OperationalError):
+            cur.execute("bad sql")
+
 
 if __name__ == "__main__":
     unittest.main()

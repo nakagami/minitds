@@ -992,7 +992,7 @@ class Connection(object):
             data += more_data
 
         if data[0] == TDS_ERROR_TOKEN:
-            raise ProgrammingError(parse_error(data))
+            raise OperationalError(parse_error(data))
         elif data[0] == TDS_TOKEN_COLMETADATA:
             description, data = parse_description(data)
         else:
