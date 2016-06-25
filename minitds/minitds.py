@@ -36,7 +36,7 @@ import struct
 import ssl
 from argparse import ArgumentParser
 
-VERSION = (0, 3, 1)
+VERSION = (0, 3, 2)
 __version__ = '%s.%s.%s' % VERSION
 apilevel = '2.0'
 threadsafety = 1
@@ -890,6 +890,7 @@ class Connection(object):
         self.encoding = encoding
         self.use_ssl = use_ssl
         self.timeout = timeout
+        self.autocommit = False
         self._packet_id = 0
         self.sslobj = self.incoming = self.outgoing = None
 
@@ -1005,8 +1006,14 @@ class Connection(object):
             else:
                 assert False
             rows.append(row)
+        if self.autocommit:
+            self.commit()
 
         return description, rows
+
+
+    def set_autocommit(self, autocommit):
+        self.autocommit = autocommit
 
 
     def begin(self):
@@ -1030,7 +1037,7 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=ISOLATION_LEVEL_READ_COMMITTED, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
     return Connection(user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
