@@ -813,7 +813,7 @@ class Cursor(object):
         if not self.connection or not self.connection.is_connect():
             raise OperationalError("Lost connection")
         if len(self._rows):
-            row = self._rows[0]
+            row = tuple(self._rows[0])
             self._rows[1:]
         else:
             row = None
