@@ -1009,14 +1009,6 @@ class Connection(object):
         return description, rows
 
 
-    def set_autocommit(self, autocommit):
-        if autocommit:
-            self._execute("SET IMPLICIT_TRANSACTIONS ON")
-        else:
-            self._execute("SET IMPLICIT_TRANSACTIONS OFF")
-        self.commit()
-
-
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
         _, _, _, data = self._read_response_packet()

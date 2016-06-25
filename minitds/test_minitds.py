@@ -125,32 +125,6 @@ class TestMiniTds(unittest.TestCase):
         self.assertTrue(isinstance(r[6], datetime.datetime))
 
 
-    def test_autocommit(self):
-        cur = self.connection.cursor()
-        cur.execute("drop table if exists test_autocommit")
-        cur.execute("""
-            CREATE TABLE test_autocommit(
-                id int IDENTITY(1,1) NOT NULL,
-                s varchar(4096)
-            )
-        """)
-        self.connection.commit()
-
-        cur.execute("insert into test_autocommit (s) values ('a')")
-        cur.execute("select count(*) from test_autocommit")
-        self.assertEqual(cur.fetchone()[0], 1)
-        self.connection.rollback()
-        cur.execute("select count(*) from test_autocommit")
-        self.assertEqual(cur.fetchone()[0], 0)
-
-        self.connection.set_autocommit(True)
-        cur.execute("insert into test_autocommit (s) values ('a')")
-        cur.execute("select count(*) from test_autocommit")
-        self.assertEqual(cur.fetchone()[0], 1)
-        self.connection.rollback()
-        cur.execute("select count(*) from test_autocommit")
-        self.assertEqual(cur.fetchone()[0], 1)
-
     def test_null_ok(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_null_ok")
