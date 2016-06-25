@@ -890,7 +890,6 @@ class Connection(object):
         self.encoding = encoding
         self.use_ssl = use_ssl
         self.timeout = timeout
-        self.autocommit = False
         self._packet_id = 0
         self.sslobj = self.incoming = self.outgoing = None
 
@@ -1006,14 +1005,16 @@ class Connection(object):
             else:
                 assert False
             rows.append(row)
-        if self.autocommit:
-            self.commit()
 
         return description, rows
 
 
     def set_autocommit(self, autocommit):
-        self.autocommit = autocommit
+        if autocommit:
+            self._execute("SET IMPLICIT_TRANSACTIONS ON")
+        else:
+            self._execute("SET IMPLICIT_TRANSACTIONS OFF")
+        self.commit()
 
 
     def begin(self):
