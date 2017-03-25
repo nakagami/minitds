@@ -4,11 +4,16 @@ minitds
 
 Yet another Python SQLServer database driver.
 
-Requirements
+Support platform
 -----------------
 
-- Python 3.5
+- Python 3.5+
+
+Support database
+------------------
+
 - MS SQLServer 2012, 2014, 2016
+- Microsoft Azure SQL Database
 
 
 Installation
