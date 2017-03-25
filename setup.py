@@ -1,7 +1,4 @@
-import sys
 from distutils.core import setup
-
-
 
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -21,6 +18,7 @@ setup(
     author='Hajime Nakagami',
     author_email='nakagami@gmail.com',
     description='Yet another SQLServer database driver',
+    long_description=open('README.rst').read(),
     license="MIT",
     py_modules=['minitds'],
 )
