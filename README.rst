@@ -19,20 +19,9 @@ Support database
 Installation
 -----------------
 
-It can install as package or module.
-
-Install as a package
-
 ::
 
     $ pip install minitds
-
-Install as a module
-
-::
-
-    $ cd $(PROJECT_HOME)
-    $ wget https://github.com/nakagami/minitds/raw/master/minitds/minitds.py
 
 Example
 -----------------

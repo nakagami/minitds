@@ -1,24 +1,7 @@
 import sys
-from distutils.core import setup, Command
+from distutils.core import setup
 
 
-class TestCommand(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        from minitds import test_minitds
-        import unittest
-        unittest.main(test_minitds, argv=sys.argv[:1])
-
-cmdclass = {'test': TestCommand}
-
-version = "%d.%d.%d" % __import__('minitds').VERSION
 
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -31,7 +14,7 @@ classifiers = [
 
 setup(
     name="minitds",
-    version=version,
+    version="%d.%d.%d" % __import__('minitds').VERSION,
     url='https://github.com/nakagami/minitds/',
     classifiers=classifiers,
     keywords=['SQLServer'],
@@ -39,6 +22,5 @@ setup(
     author_email='nakagami@gmail.com',
     description='Yet another SQLServer database driver',
     license="MIT",
-    packages=['minitds'],
-    cmdclass=cmdclass,
+    py_modules=['minitds'],
 )
