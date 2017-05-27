@@ -2,7 +2,7 @@
 ##############################################################################
 # The MIT License (MIT)
 #
-# Copyright (c) 2016 Hajime Nakagami
+# Copyright (c) 2016-2017 Hajime Nakagami
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -185,6 +185,30 @@ class TestMiniTds(unittest.TestCase):
             self.connection.commit()
         cur.execute("select * from test_large_results")
         self.assertEqual(len(cur.fetchall()), 30)
+
+    def test_callproc(self):
+        cur = self.connection.cursor()
+        cur.execute("drop procedure if exists test_callproc_no_params")
+        cur.execute("""
+            CREATE PROCEDURE test_callproc_no_params
+            AS
+                SELECT 1 a, 1.2 b, db_name() c, NULL d,
+                    cast(1.25 as money) e,
+                    cast(0.125 as float) f, cast(0.25 as real) g
+        """)
+        self.connection.commit()
+
+        cur.callproc('test_callproc_no_params')
+
+        self.assertEqual(
+            ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+            [d[0] for d in cur.description]
+        )
+        self.assertEqual(
+            [1, decimal.Decimal('1.2'), 'test', None, decimal.Decimal('1.25'), 0.125, 0.25],
+            list(cur.fetchone())
+        )
+
 
     def test_error(self):
         cur = self.connection.cursor()

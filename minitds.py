@@ -2,7 +2,7 @@
 ##############################################################################
 # The MIT License (MIT)
 #
-# Copyright (c) 2016 Hajime Nakagami
+# Copyright (c) 2016-2017 Hajime Nakagami
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -419,7 +419,7 @@ def get_login_bytes(host, user, password, database, lcid):
     return buf
 
 
-def get_trans_request_bytes(req, isolation_level, transaction_id):
+def get_trans_request_bytes(transaction_id, req, isolation_level):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
@@ -431,15 +431,34 @@ def get_trans_request_bytes(req, isolation_level, transaction_id):
     return buf
 
 
-def get_query_bytes(query, transaction_id):
+def get_sql_batch_bytes(transaction_id, query):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
     buf += transaction_id
     buf += _int_to_4bytes(1)        # request count
+
     buf += _str_to_bytes(query)
 
     return buf
+
+
+def get_rpc_request_bytes(transaction_id, procname, args=[]):
+    buf = _int_to_4bytes(22)
+    buf += _int_to_4bytes(18)
+    buf += _int_to_2bytes(2)
+    buf += transaction_id
+    buf += _int_to_4bytes(1)        # request count
+
+    buf += _int_to_2bytes(len(procname))
+    buf += _str_to_bytes(procname)
+    buf += bytes([0x00, 0x00])      # OptionFlags
+
+    # TODO:ParameterData
+    # buf += bytes([0x00, 0x02, 0x26, 0x02, 0x00])
+
+    return buf
+
 
 def _parse_byte(data):
     return data[0], data[1:]
@@ -777,10 +796,15 @@ class Cursor(object):
     def __exit__(self, exc, value, traceback):
         self.close()
 
-    def callproc(self, procname, args=()):
-        raise NotSupportedError()
+    def callproc(self, procname, args=[]):
+        if not self.connection or not self.connection.is_connect():
+            raise ProgrammingError("Lost connection")
+        self.description = []
+        self.query = procname
+        self.args = args
+        self.description, self._rows = self.connection._callproc(procname, args)
 
-    def nextset(self, procname, args=()):
+    def nextset(self, procname, args=[]):
         raise NotSupportedError()
 
     def setinputsizes(sizes):
@@ -789,7 +813,7 @@ class Cursor(object):
     def setoutputsize(size, column=None):
         pass
 
-    def execute(self, query, args=()):
+    def execute(self, query, args=[]):
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
         self.description = []
@@ -985,7 +1009,7 @@ class Connection(object):
         return Cursor(self)
 
     def _execute(self, query):
-        self._send_message(TDS_SQL_BATCH, get_query_bytes(query, self.transaction_id))
+        self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
         token, status, spid, data = self._read_response_packet()
         while status == 0:
             token, status, spid, more_data = self._read_response_packet()
@@ -1012,22 +1036,52 @@ class Connection(object):
         return description, rows
 
 
+    def _callproc(self, procname, args):
+        self._send_message(TDS_RPC, get_rpc_request_bytes(self.transaction_id, procname, args))
+
+        token, status, spid, data = self._read_response_packet()
+        while status == 0:
+            token, status, spid, more_data = self._read_response_packet()
+            data += more_data
+
+        if data[0] == TDS_ERROR_TOKEN:
+            raise OperationalError(parse_error(data))
+        elif data[0] == TDS_TOKEN_COLMETADATA:
+            description, data = parse_description(data)
+        else:
+            description = []
+        rows = []
+        while data[0] in (TDS_ROW_TOKEN, TDS_NBCROW_TOKEN):
+            if data[0] == TDS_ROW_TOKEN:
+                row, data = parse_row(description, self.encoding, data)
+            elif data[0] == TDS_NBCROW_TOKEN:
+                row, data = parse_nbcrow(description, self.encoding, data)
+            else:
+                assert False
+            rows.append(row)
+        if self.autocommit:
+            self.commit()
+
+        return description, rows
+
+
+
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
 
 
     def begin(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_BEGIN_XACT, self.isolation_level, b'\x00'*8))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(b'\x00'*8, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = parse_transaction_id(data)
 
     def commit(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_COMMIT_XACT, self.isolation_level, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, self.isolation_level))
         self._read_response_packet()
         self.begin()
 
     def rollback(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(TM_ROLLBACK_XACT, self.isolation_level, self.transaction_id))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
         self.begin()
 
