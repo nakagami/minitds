@@ -443,11 +443,11 @@ def get_sql_batch_bytes(transaction_id, query):
     return buf
 
 
-def get_rpc_request_bytes(transaction_id, procname, params=[]):
+def get_rpc_request_bytes(connection, procname, params=[]):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
-    buf += transaction_id
+    buf += connection.transaction_id
     buf += _int_to_4bytes(1)        # request count
 
     buf += _int_to_2bytes(len(procname))
@@ -463,8 +463,10 @@ def get_rpc_request_bytes(transaction_id, procname, params=[]):
             buf += bytes([INTNTYPE, 4])
             buf += bytes([4]) + p.to_bytes(4, byteorder='little')
         elif isinstance(p, str):
-            buf += bytes([NVARCHARTYPE]) + len(p).to_bytes(2, byteorder='little')
-            buf += len(p).to_bytes(2, byteorder='little') + _str_to_bytes(p)
+            ln = len(p) * 2
+            buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')
+            buf += _int_to_2bytes(connection.lcid) + bytes([0, 0, 0])
+            buf += ln.to_bytes(2, byteorder='little') + _str_to_bytes(p)
 
     return buf
 
@@ -1047,7 +1049,7 @@ class Connection(object):
 
 
     def _callproc(self, procname, args):
-        self._send_message(TDS_RPC, get_rpc_request_bytes(self.transaction_id, procname, args))
+        self._send_message(TDS_RPC, get_rpc_request_bytes(self, procname, args))
 
         token, status, spid, data = self._read_response_packet()
         while status == 0:
