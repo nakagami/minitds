@@ -37,7 +37,7 @@ import ssl
 import threading
 from argparse import ArgumentParser
 
-VERSION = (0, 3, 3)
+VERSION = (0, 4, 0)
 __version__ = '%s.%s.%s' % VERSION
 apilevel = '2.0'
 threadsafety = 1
