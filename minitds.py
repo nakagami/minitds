@@ -34,6 +34,7 @@ import binascii
 import uuid
 import struct
 import ssl
+import threading
 from argparse import ArgumentParser
 
 VERSION = (0, 3, 3)
@@ -319,7 +320,7 @@ def get_prelogin_bytes(use_ssl, instance_name="MSSQLServer"):
         buf += b'\x02'  # ENCRYPT_NOT_SUP
 
     buf += instance_name
-    buf += _bint_to_4bytes(0)   # TODO: thread id
+    buf += _bint_to_4bytes(threading.get_ident())   # thread id
     buf += b'\x00'              # not use MARS
 
     return buf
