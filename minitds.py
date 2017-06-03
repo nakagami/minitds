@@ -467,6 +467,7 @@ def get_rpc_request_bytes(connection, procname, params=[]):
             buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')
             buf += _int_to_2bytes(connection.lcid) + bytes([0, 0, 0])
             buf += ln.to_bytes(2, byteorder='little') + _str_to_bytes(p)
+        # TODO: decimal, float, datetime
 
     return buf
 
@@ -1075,7 +1076,6 @@ class Connection(object):
             self.commit()
 
         return description, rows
-
 
 
     def set_autocommit(self, autocommit):
