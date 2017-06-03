@@ -288,7 +288,7 @@ def _convert_date(b):
     return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
-def get_prelogin_bytes(use_ssl, instance_name="MSSQLServer"):
+def get_prelogin_bytes(use_ssl, instance_name):
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
     # version
@@ -917,11 +917,12 @@ class Connection(object):
 
         return sslobj, incoming, outgoing
 
-    def __init__(self, user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout):
+    def __init__(self, user, password, database, host, instance_name, isolation_level, port, lcid, encoding, use_ssl, timeout):
         self.user = user
         self.password = password
         self.database = database
         self.host = host
+        self.instance_name = instance_name
         self.isolation_level = isolation_level
         self.port = port
         self.lcid = lcid
@@ -937,7 +938,7 @@ class Connection(object):
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
 
-        self._send_message(TDS_PRELOGIN, get_prelogin_bytes(use_ssl))
+        self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
         _, _, _, body = self._read_response_packet()
 
         if body[32] == 1:
@@ -1104,8 +1105,8 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
-    return Connection(user, password, database, host, isolation_level, port, lcid, encoding, use_ssl, timeout)
+def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+    return Connection(user, password, database, host, instance_name, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
 def output_results(conn, query, with_header=True, separator="\t", null='null', file=sys.stdout):
