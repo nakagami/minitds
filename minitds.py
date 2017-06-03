@@ -897,11 +897,9 @@ class Cursor(object):
 
 class Connection(object):
     def _do_ssl_handshake(self):
-        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
-
-        sslobj = context.wrap_bio(incoming, outgoing, False)
+        sslobj = ssl.SSLContext().wrap_bio(incoming, outgoing, False)
 
         # do_handshake()
         while True:
