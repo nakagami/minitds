@@ -186,7 +186,7 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select * from test_large_results")
         self.assertEqual(len(cur.fetchall()), 30)
 
-    def test_callproc(self):
+    def test_callproc_no_params(self):
         cur = self.connection.cursor()
         cur.execute("drop procedure if exists test_callproc_no_params")
         cur.execute("""
@@ -206,6 +206,23 @@ class TestMiniTds(unittest.TestCase):
         )
         self.assertEqual(
             [1, decimal.Decimal('1.2'), 'test', None, decimal.Decimal('1.25'), 0.125, 0.25],
+            list(cur.fetchone())
+        )
+
+    def test_callproc_with_params(self):
+        cur = self.connection.cursor()
+        cur.execute("drop procedure if exists test_callproc_with_params")
+        cur.execute("""
+            CREATE PROCEDURE test_callproc_with_params
+            @INT_VAL int,
+            @STR_VAL nvarchar(50)
+            AS
+                SELECT @INT_VAL a, @STR_VAL b
+        """)
+        self.connection.commit()
+        cur.callproc('test_callproc_with_params', [123, None])
+        self.assertEqual(
+            [123, None],
             list(cur.fetchone())
         )
 

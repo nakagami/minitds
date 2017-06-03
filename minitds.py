@@ -443,7 +443,7 @@ def get_sql_batch_bytes(transaction_id, query):
     return buf
 
 
-def get_rpc_request_bytes(transaction_id, procname, args=[]):
+def get_rpc_request_bytes(transaction_id, procname, params=[]):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
@@ -454,8 +454,17 @@ def get_rpc_request_bytes(transaction_id, procname, args=[]):
     buf += _str_to_bytes(procname)
     buf += bytes([0x00, 0x00])      # OptionFlags
 
-    # TODO:ParameterData
-    # buf += bytes([0x00, 0x02, 0x26, 0x02, 0x00])
+    for p in params:
+        buf += bytes([0, 0])     # name="", StatusFlags
+        if p is None:
+            buf += bytes([INTNTYPE, 2])
+            buf += bytes([0])
+        elif isinstance(p, int):
+            buf += bytes([INTNTYPE, 4])
+            buf += bytes([4]) + p.to_bytes(4, byteorder='little')
+        elif isinstance(p, str):
+            buf += bytes([NVARCHARTYPE]) + len(p).to_bytes(2, byteorder='little')
+            buf += len(p).to_bytes(2, byteorder='little') + _str_to_bytes(p)
 
     return buf
 
@@ -795,6 +804,7 @@ class Cursor(object):
 
     def __exit__(self, exc, value, traceback):
         self.close()
+
 
     def callproc(self, procname, args=[]):
         if not self.connection or not self.connection.is_connect():
