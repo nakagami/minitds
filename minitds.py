@@ -468,7 +468,26 @@ def get_rpc_request_bytes(connection, procname, params=[]):
             buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')
             buf += _int_to_2bytes(connection.lcid) + bytes([0, 0, 0])
             buf += ln.to_bytes(2, byteorder='little') + _str_to_bytes(p)
-        # TODO: decimal, float, datetime
+        elif isinstance(p, decimal.Decimal):
+            sign, digits, disponent = p.as_tuple()
+            if disponent > 0:
+                exp = 256 - disponent
+            else:
+                exp = -disponent
+            v = 0
+            ln = len(digits)
+            for i in range(ln):
+                v += digits[i] * (10 ** (ln - i - 1))
+            buf += bytes([DECIMALNTYPE, 9])
+            buf += bytes([decimal.getcontext().prec, exp])
+            buf += bytes([9, bool(not sign)]) + _int_to_8bytes(v)
+        else:
+            # TODO: float, datetime
+            s = str(p)
+            ln = len(s) * 2
+            buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')
+            buf += _int_to_2bytes(connection.lcid) + bytes([0, 0, 0])
+            buf += ln.to_bytes(2, byteorder='little') + _str_to_bytes(s)
 
     return buf
 

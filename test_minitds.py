@@ -215,15 +215,16 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("""
             CREATE PROCEDURE test_callproc_with_params
             @INT_VAL int,
+            @DECIMAL_VAL decimal(10, 4),
             @STR_VAL nvarchar(50),
             @NULL_VAL nvarchar(50)
             AS
-                SELECT @INT_VAL a, @STR_VAL c, @NULL_VAL d
+                SELECT @INT_VAL a, @DECIMAL_VAL b, @STR_VAL c, @NULL_VAL d
         """)
         self.connection.commit()
-        cur.callproc('test_callproc_with_params', [123, 'ABC', None])
+        cur.callproc('test_callproc_with_params', [123, decimal.Decimal('-0.125'), 'ABC', None])
         self.assertEqual(
-            [123, 'ABC', None],
+            [123, decimal.Decimal('-0.125'), 'ABC', None],
             list(cur.fetchone())
         )
 
