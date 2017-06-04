@@ -482,7 +482,7 @@ def get_rpc_request_bytes(connection, procname, params=[]):
             buf += bytes([decimal.getcontext().prec, exp])
             buf += bytes([9, bool(not sign)]) + _int_to_8bytes(v)
         else:
-            # TODO: float, datetime
+            # another type. pack as string parameter
             s = str(p)
             ln = len(s) * 2
             buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')

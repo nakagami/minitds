@@ -217,14 +217,15 @@ class TestMiniTds(unittest.TestCase):
             @INT_VAL int,
             @DECIMAL_VAL decimal(10, 4),
             @STR_VAL nvarchar(50),
-            @NULL_VAL nvarchar(50)
+            @NULL_VAL nvarchar(50),
+            @FLOAT_VAL float
             AS
-                SELECT @INT_VAL a, @DECIMAL_VAL b, @STR_VAL c, @NULL_VAL d
+                SELECT @INT_VAL a, @DECIMAL_VAL b, @STR_VAL c, @NULL_VAL d, @FLOAT_VAL f
         """)
         self.connection.commit()
-        cur.callproc('test_callproc_with_params', [123, decimal.Decimal('-0.125'), 'ABC', None])
+        cur.callproc('test_callproc_with_params', [123, decimal.Decimal('-1.2'), 'ABC', None, 0.125])
         self.assertEqual(
-            [123, decimal.Decimal('-0.125'), 'ABC', None],
+            [123, decimal.Decimal('-1.2'), 'ABC', None, 0.125],
             list(cur.fetchone())
         )
 
