@@ -835,7 +835,8 @@ class Cursor(object):
         self.description = []
         self.query = procname
         self.args = args
-        self.description, self._rows = self.connection._callproc(procname, args)
+        return_status, self.description, self._rows = self.connection._callproc(procname, args)
+        return return_status
 
     def nextset(self, procname, args=[]):
         raise NotSupportedError()
@@ -1073,8 +1074,14 @@ class Connection(object):
 
         token, status, spid, data = self._read_response_packet()
         while status == 0:
-            token, status, spid, more_data = self._read_response_packet()
+            _, status, spid, more_data = self._read_response_packet()
             data += more_data
+
+        if token == TDS_TABULAR_RESULT:
+            assert data[-18] == 0x79
+            return_status = _bytes_to_int(data[-17:-13])
+        else:
+            return_status = None
 
         if data[0] == TDS_ERROR_TOKEN:
             raise OperationalError(parse_error(data))
@@ -1093,8 +1100,7 @@ class Connection(object):
             rows.append(row)
         if self.autocommit:
             self.commit()
-
-        return description, rows
+        return return_status, description, rows
 
 
     def set_autocommit(self, autocommit):

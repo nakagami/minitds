@@ -195,10 +195,11 @@ class TestMiniTds(unittest.TestCase):
                 SELECT 1 a, 1.2 b, db_name() c, NULL d,
                     cast(1.25 as money) e,
                     cast(0.125 as float) f, cast(0.25 as real) g
+                RETURN 1234
         """)
         self.connection.commit()
 
-        cur.callproc('test_callproc_no_params')
+        self.assertEqual(cur.callproc('test_callproc_no_params'), 1234)
 
         self.assertEqual(
             ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
