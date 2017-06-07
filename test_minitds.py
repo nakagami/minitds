@@ -194,7 +194,7 @@ class TestMiniTds(unittest.TestCase):
         """)
         self.connection.commit()
 
-        cur.callproc('test_callproc_largeresults')
+        cur.callproc('test_callproc_large_results')
         self.assertEqual(len(cur.fetchall()), 30)
 
     def test_callproc_no_params(self):
