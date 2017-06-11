@@ -54,4 +54,4 @@ Execute Procedure::
 Restrictions
 ----------------
 
-- Support SQL Server User Authentication only.
+- Support connecting through SQL Server Authentication only.
