@@ -2,7 +2,7 @@
 minitds
 =============
 
-Yet another Python SQLServer database driver.
+Yet another Python MS SQLServer database driver.
 
 Support platform
 -----------------
@@ -12,7 +12,7 @@ Support platform
 Support database
 ------------------
 
-- MS SQLServer 2012, 2014, 2016
+- MS SQLServer 2012, 2014, 2016, 2017
 - Microsoft Azure SQL Database
 
 

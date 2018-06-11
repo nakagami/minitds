@@ -17,7 +17,7 @@ setup(
     keywords=['SQLServer'],
     author='Hajime Nakagami',
     author_email='nakagami@gmail.com',
-    description='Yet another SQLServer database driver',
+    description='Yet another MS SQLServer database driver',
     long_description=open('README.rst').read(),
     license="MIT",
     py_modules=['minitds'],
