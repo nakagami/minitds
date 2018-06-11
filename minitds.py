@@ -320,7 +320,7 @@ def get_prelogin_bytes(use_ssl, instance_name):
         buf += b'\x02'  # ENCRYPT_NOT_SUP
 
     buf += instance_name
-    buf += _bint_to_4bytes(threading.get_ident())   # thread id
+    buf += _bint_to_4bytes(os.getpid())   # thread id
     buf += b'\x00'              # not use MARS
 
     return buf
@@ -919,7 +919,7 @@ class Connection(object):
     def _do_ssl_handshake(self):
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
-        sslobj = ssl.SSLContext().wrap_bio(incoming, outgoing, False)
+        sslobj = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2).wrap_bio(incoming, outgoing, False)
 
         # do_handshake()
         while True:
