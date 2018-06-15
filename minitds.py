@@ -821,7 +821,7 @@ def escape_parameter(v):
     elif t == int or t == float:
         return str(v)
     elif t == decimal.Decimal:
-        return "decimal '" + str(v) + "'"
+        return str(v)
     else:
         return "'" + str(v) + "'"
 

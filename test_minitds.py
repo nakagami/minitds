@@ -149,6 +149,21 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select count(*) from test_autocommit")
         self.assertEqual(cur.fetchone()[0], 1)
 
+    def test_decimal(self):
+        cur = self.connection.cursor()
+        cur.execute("drop table if exists test_decimal")
+        cur.execute("""
+            CREATE TABLE test_decimal(
+                id int IDENTITY(1,1) NOT NULL,
+                d decimal(10, 4)
+            )
+        """)
+        self.connection.commit()
+        d = decimal.Decimal("1.23")
+        cur.execute("insert into test_decimal (d) values (%s)", [d])
+        cur.execute("select d from test_decimal where d=%s", [d])
+        self.assertEqual(cur.fetchone()[0], d)
+
     def test_null_ok(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_null_ok")
