@@ -948,7 +948,7 @@ class Connection(object):
 
         return sslobj, incoming, outgoing
 
-    def __init__(self, user, password, database, host, instance_name, isolation_level, port, lcid, encoding, use_ssl, timeout):
+    def __init__(self, user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout):
         self.user = user
         self.password = password
         self.database = database
@@ -960,7 +960,7 @@ class Connection(object):
         self.encoding = encoding
         self.use_ssl = use_ssl
         self.timeout = timeout
-        self.autocommit = False
+        self.autocommit = autocommit
         self._packet_id = 0
         self.sslobj = self.incoming = self.outgoing = None
 
@@ -1141,8 +1141,8 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
-    return Connection(user, password, database, host, instance_name, isolation_level, port, lcid, encoding, use_ssl, timeout)
+def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, autocommit=False, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+    return Connection(user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout)
 
 
 def output_results(conn, query, with_header=True, separator="\t", null='null', file=sys.stdout):
