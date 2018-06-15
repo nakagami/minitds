@@ -1113,7 +1113,7 @@ class Connection(object):
         self.transaction_id, _ = parse_transaction_id(data)
 
     def commit(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, self.isolation_level))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
         self.begin()
 
@@ -1128,7 +1128,7 @@ class Connection(object):
             self.sock = None
 
 
-def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=0, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
     return Connection(user, password, database, host, instance_name, isolation_level, port, lcid, encoding, use_ssl, timeout)
 
 
