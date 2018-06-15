@@ -687,8 +687,8 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             v = v.decode(encoding)
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
-        d, data = _parse_int(size // 2)
-        t, data = _parse_int(size // 2)
+        d, data = _parse_int(data, size // 2)
+        t, data = _parse_int(data, size // 2)
         ms = int(round(t % 300 * 10 / 3.0))
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
