@@ -593,6 +593,8 @@ def _parse_description_type(data):
         precision, data = _parse_byte(data)
     elif type_id in (SSVARIANTTYPE,):
         size, data = _parse_int(data, 4)
+    elif type_id in (BIGBINARYTYPE,):
+        size, data = _parse_int(data, 4)
     else:
         print("_parse_description_type() Unknown type_id:", type_id)
 
