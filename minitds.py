@@ -793,9 +793,11 @@ def escape_parameter(v):
 
     t = type(v)
     if t == str:
-        return u"'" + v.replace(u"'", u"''") + u"'"
+        return "'" + v.replace("'", "''") + "'"
     elif t == bool:
-        return u"TRUE" if v else u"FALSE"
+        return "TRUE" if v else "FALSE"
+    elif t in (bytes, bytearray):
+        return '0x' + ''.join([('0'+hex(c)[2:])[-2:] for c in v])
     elif t == time.struct_time:
         return u'%04d-%02d-%02d %02d:%02d:%02d' % (
             v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
@@ -804,7 +806,7 @@ def escape_parameter(v):
     elif t == datetime.date:
         return "date '" + str(v) + "'"
     elif t == datetime.timedelta:
-        return u"interval '" + str(v) + "'"
+        return "interval '" + str(v) + "'"
     elif t == int or t == float:
         return str(v)
     elif t == decimal.Decimal:
