@@ -593,8 +593,8 @@ def _parse_description_type(data):
         precision, data = _parse_byte(data)
     elif type_id in (SSVARIANTTYPE,):
         size, data = _parse_int(data, 4)
-    elif type_id in (BIGBINARYTYPE,):
-        size, data = _parse_int(data, 4)
+    elif type_id in (BIGVARBINTYPE, BIGBINARYTYPE,):
+        size, data = _parse_int(data, 2)
     else:
         print("_parse_description_type() Unknown type_id:", type_id)
 
@@ -688,6 +688,13 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             v, data = data[:ln], data[ln:]
             v = v.decode(encoding)
+    elif type_id in (BIGVARBINTYPE, BIGBINARYTYPE, ):
+        ln = _bytes_to_int(data[:2])
+        data = data[2:]
+        if ln < 0:
+            v = None
+        else:
+            v, data = data[:ln], data[ln:]
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
