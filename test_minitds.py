@@ -164,6 +164,22 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select d from test_decimal where d=%s", [d])
         self.assertEqual(cur.fetchone()[0], d)
 
+    def test_varbinary(self):
+        cur = self.connection.cursor()
+        cur.execute("drop table if exists test_varbinary")
+        cur.execute("""
+            CREATE TABLE test_varbinary(
+                id int IDENTITY(1,1) NOT NULL,
+                d varbinary(max) null,
+                primary key (id)
+            )
+        """)
+        self.connection.commit()
+        d = b'\x00\x01\x02'
+        cur.execute("insert into test_varbinary (d) values (%s)", [d])
+        cur.execute("select d from test_varbinary")
+        self.assertEqual(cur.fetchone()[0], d)
+
     def test_null_ok(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_null_ok")
