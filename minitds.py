@@ -690,7 +690,17 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             v, data = data[:ln], data[ln:]
             v = v.decode(encoding)
-    elif type_id in (BIGVARBINTYPE, BIGBINARYTYPE, ):
+    elif type_id in (BIGVARBINTYPE, ):
+        ln = _bytes_to_int(data[:8])
+        data = data[8:]
+
+        if ln < 0:
+            v = None
+        else:
+            ln2 = _bytes_to_int(data[:4])
+            data = data[4:]
+            v, data = data[:ln], data[ln:]
+    elif type_id in (BIGBINARYTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
         if ln < 0:
