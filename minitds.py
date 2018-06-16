@@ -882,6 +882,7 @@ class Cursor(object):
             query = query.replace('%%', '%')
         self.query = query
         self.description, self._rows = self.connection._execute(query)
+        self._rowcount = len(self._rows)
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
