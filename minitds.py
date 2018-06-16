@@ -1089,7 +1089,9 @@ class Connection(object):
                 row, data = parse_nbcrow(description, self.encoding, data)
                 rows.append(row)
             elif data[0] == TDS_DONE_TOKEN:
-                data = data[17:]
+                data = data[13:]
+            elif data[0] == TDS_ORDER_TOKEN:
+                data = data[5:]
             else:
                 raise ValueError("Unknown token: {}".format(hex(data[0])))
 
