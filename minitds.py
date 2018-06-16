@@ -173,7 +173,9 @@ TM_ROLLBACK_XACT = 8
 TDS_ENV_BEGINTRANS = 8
 
 # Token type
+TDS_OFFSET_TOKEN = 0x78
 TDS_TOKEN_COLMETADATA = 0x81
+TDS_ORDER_TOKEN = 0xA9
 TDS_ERROR_TOKEN = 0xAA
 TDS_TOKEN_ENVCHANGE = 0xE3
 TDS_ROW_TOKEN = 0xD1
@@ -1072,21 +1074,25 @@ class Connection(object):
             token, status, spid, more_data = self._read_response_packet()
             data += more_data
 
-        if data[0] == TDS_ERROR_TOKEN:
-            raise OperationalError(parse_error(data))
-        elif data[0] == TDS_TOKEN_COLMETADATA:
-            description, data = parse_description(data)
-        else:
-            description = []
+        description = []
         rows = []
-        while data[0] in (TDS_ROW_TOKEN, TDS_NBCROW_TOKEN):
-            if data[0] == TDS_ROW_TOKEN:
+
+        while data and data[0]:
+            if data[0] == TDS_ERROR_TOKEN:
+                raise OperationalError(parse_error(data))
+            elif data[0] == TDS_TOKEN_COLMETADATA:
+                description, data = parse_description(data)
+            elif data[0] == TDS_ROW_TOKEN:
                 row, data = parse_row(description, self.encoding, data)
+                rows.append(row)
             elif data[0] == TDS_NBCROW_TOKEN:
                 row, data = parse_nbcrow(description, self.encoding, data)
+                rows.append(row)
+            elif data[0] == TDS_DONE_TOKEN:
+                data = data[17:]
             else:
-                assert False
-            rows.append(row)
+                raise ValueError("Unknown token: {}".format(hex(data[0])))
+
         if self.autocommit:
             self.commit()
 
