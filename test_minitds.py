@@ -175,13 +175,14 @@ class TestMiniTds(unittest.TestCase):
             )
         """)
         d = b'\x00\x01\x02'
-        cur.execute("insert into test_varbinary (varbinary_column) values (%s)", [d])
         cur.execute("insert into test_varbinary (varbinary_column) values (%s)", [None])
+        cur.execute("insert into test_varbinary (varbinary_column) values (%s)", [d])
         self.connection.commit()
 
-        cur.execute("select varbinary_column from test_varbinary order by id")
-        self.assertEqual(cur.fetchone()[0], d)
+#        cur.execute("select varbinary_column from test_varbinary order by id")
+        cur.execute("select varbinary_column from test_varbinary")
         self.assertEqual(cur.fetchone()[0], None)
+        self.assertEqual(cur.fetchone()[0], d)
 
     def test_null_ok(self):
         cur = self.connection.cursor()

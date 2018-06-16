@@ -895,7 +895,7 @@ class Cursor(object):
             raise OperationalError("Lost connection")
         if len(self._rows):
             row = tuple(self._rows[0])
-            self._rows[1:]
+            self._rows = self._rows[1:]
         else:
             row = None
         return row
