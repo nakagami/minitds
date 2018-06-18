@@ -702,6 +702,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             ln2 = _bytes_to_int(data[:4])
             data = data[4:]
             v, data = data[:ln], data[ln:]
+            data = data[4:] # Unknow pad 4 bytes ???
     elif type_id in (BIGBINARYTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
