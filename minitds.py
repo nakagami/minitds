@@ -181,6 +181,7 @@ TDS_TOKEN_ENVCHANGE = 0xE3
 TDS_ROW_TOKEN = 0xD1
 TDS_NBCROW_TOKEN = 0xD2
 TDS_DONE_TOKEN = 0xFD
+TDS_DONEINPROC_TOKEN = 0xFF
 
 # Column type
 IMAGETYPE = 34  # 0x22
@@ -1089,12 +1090,13 @@ class Connection(object):
             elif data[0] == TDS_NBCROW_TOKEN:
                 row, data = parse_nbcrow(description, self.encoding, data)
                 rows.append(row)
-            elif data[0] == TDS_DONE_TOKEN:
+            elif data[0] in (TDS_DONE_TOKEN, TDS_DONEINPROC_TOKEN):
                 data = data[13:]
             elif data[0] == TDS_ORDER_TOKEN:
                 data = data[5:]
             else:
-                raise ValueError("Unknown token: {}".format(hex(data[0])))
+                break
+                #raise ValueError("Unknown token: {}".format(hex(data[0])))
 
         if self.autocommit:
             self.commit()
