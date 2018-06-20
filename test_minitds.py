@@ -278,7 +278,7 @@ class TestMiniTds(unittest.TestCase):
 
     def test_error(self):
         cur = self.connection.cursor()
-        with self.assertRaises(minitds.OperationalError):
+        with self.assertRaises(minitds.ProgrammingError):
             cur.execute("bad sql")
 
 

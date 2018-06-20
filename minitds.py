@@ -807,8 +807,15 @@ def parse_nbcrow(description, encoding, data):
 
 def parse_error(data):
     assert data[0] == TDS_ERROR_TOKEN
+    err_num = _bytes_to_int(data[3:7])
     msg_ln = _bytes_to_int(data[9:11])
-    return _bytes_to_str(data[11:msg_ln*2+11])
+    message = _bytes_to_str(data[11:msg_ln*2+11])
+    if err_num in (102, 207, 208, 2812, 4104):
+        return ProgrammingError("{}:{}".format(err_num, message))
+    elif err_num in (515, 547, 2601, 2627):
+        return IntegrityError("{}:{}".format(err_num, message))
+    return OperationalError("{}:{}".format(err_num, message))
+
 
 # -----------------------------------------------------------------------------
 
@@ -1081,7 +1088,7 @@ class Connection(object):
 
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
-                raise OperationalError(parse_error(data))
+                raise parse_error(data)
             elif data[0] == TDS_TOKEN_COLMETADATA:
                 description, data = parse_description(data)
             elif data[0] == TDS_ROW_TOKEN:
@@ -1119,7 +1126,7 @@ class Connection(object):
             return_status = None
 
         if data[0] == TDS_ERROR_TOKEN:
-            raise OperationalError(parse_error(data))
+            raise parse_error(data)
         elif data[0] == TDS_TOKEN_COLMETADATA:
             description, data = parse_description(data)
         else:
