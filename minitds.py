@@ -181,6 +181,7 @@ TDS_TOKEN_ENVCHANGE = 0xE3
 TDS_ROW_TOKEN = 0xD1
 TDS_NBCROW_TOKEN = 0xD2
 TDS_DONE_TOKEN = 0xFD
+TDS_DONEPROC_TOKEN = 0xFE
 TDS_DONEINPROC_TOKEN = 0xFF
 
 # Column type
@@ -892,8 +893,7 @@ class Cursor(object):
             query = query % escaped_args
             query = query.replace('%%', '%')
         self.query = query
-        self.description, self._rows = self.connection._execute(query)
-        self._rowcount = len(self._rows)
+        self.description, self._rows, self._rowcount = self.connection._execute(query)
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
@@ -1085,6 +1085,7 @@ class Connection(object):
 
         description = []
         rows = []
+        rowcount = 0
 
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
@@ -1097,7 +1098,8 @@ class Connection(object):
             elif data[0] == TDS_NBCROW_TOKEN:
                 row, data = parse_nbcrow(description, self.encoding, data)
                 rows.append(row)
-            elif data[0] in (TDS_DONE_TOKEN, TDS_DONEINPROC_TOKEN):
+            elif data[0] in (TDS_DONE_TOKEN, TDS_DONEINPROC_TOKEN, TDS_DONE_TOKEN):
+                rowcount += _bytes_to_int(data[5:13])
                 data = data[13:]
             elif data[0] == TDS_ORDER_TOKEN:
                 data = data[5:]
@@ -1108,7 +1110,7 @@ class Connection(object):
         if self.autocommit:
             self.commit()
 
-        return description, rows
+        return description, rows, rowcount
 
 
     def _callproc(self, procname, args):
