@@ -686,7 +686,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
-    elif type_id in (BIGCHARTYPE, BIGVARCHRTYPE):
+    elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
         if ln < 0:
@@ -694,24 +694,26 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         else:
             v, data = data[:ln], data[ln:]
             v = v.decode(encoding)
-    elif type_id in (BIGVARBINTYPE, ):
-        ln = _bytes_to_int(data[:8])
-        data = data[8:]
-
-        if ln < 0:
-            v = None
+    elif type_id in (BIGVARCHRTYPE, BIGVARBINTYPE):
+        if size == -1:
+            ln = _bytes_to_int(data[:8])
+            data = data[8:]
+            if ln < 0:
+                v = None
+            else:
+                ln2 = _bytes_to_int(data[:4])
+                data = data[4:]
+                v, data = data[:ln], data[ln:]
+                data = data[4:] # Unknow pad 4 bytes ???
         else:
-            ln2 = _bytes_to_int(data[:4])
-            data = data[4:]
-            v, data = data[:ln], data[ln:]
-            data = data[4:] # Unknow pad 4 bytes ???
-    elif type_id in (BIGBINARYTYPE, ):
-        ln = _bytes_to_int(data[:2])
-        data = data[2:]
-        if ln < 0:
-            v = None
-        else:
-            v, data = data[:ln], data[ln:]
+            ln = _bytes_to_int(data[:2])
+            data = data[2:]
+            if ln < 0:
+                v = None
+            else:
+                v, data = data[:ln], data[ln:]
+        if type_id == BIGVARCHRTYPE and v is not None:
+            v = v.decode(encoding)
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
