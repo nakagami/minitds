@@ -674,18 +674,21 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             v *= -1
         v /= 10 ** scale
     elif type_id in (SYBVARBINARY, ):
-        ln, data = _parse_uint(data, 2)
-        if ln == 0xFFFF:
+        ln, data = _parse_int(data, 2)
+        if ln == -1:
             v = None
         else:
             v, data = data[:ln], data[ln:]
     elif type_id in (NCHARTYPE, NVARCHARTYPE):
         ln, data = _parse_int(data, 2)
-        if ln < 0:
+        if ln == -1:
             v = None
         else:
+            if size == -1:
+                data = data[10:]
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
+
     elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
@@ -776,7 +779,6 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             v, data = _parse_variant(data, ln)
     else:
         raise Error("_parse_column() Unknown type %d" % (type_id,))
-
     return v, data
 
 
