@@ -179,8 +179,7 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("insert into test_varbinary (varbinary_column) values (%s)", [d])
         self.connection.commit()
 
-#        cur.execute("select varbinary_column from test_varbinary order by id")
-        cur.execute("select varbinary_column from test_varbinary")
+        cur.execute("select varbinary_column from test_varbinary order by id, varbinary_column")
         self.assertEqual(cur.fetchone()[0], None)
         self.assertEqual(cur.fetchone()[0], d)
 

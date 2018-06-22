@@ -1104,7 +1104,8 @@ class Connection(object):
                 rowcount += _bytes_to_int(data[5:13])
                 data = data[13:]
             elif data[0] == TDS_ORDER_TOKEN:
-                data = data[5:]
+                ln = _bytes_to_int(data[1:3])
+                data = data[3+ln:]
             else:
                 break
                 #raise ValueError("Unknown token: {}".format(hex(data[0])))
