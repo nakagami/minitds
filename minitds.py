@@ -836,14 +836,8 @@ def escape_parameter(v):
     elif t in (bytes, bytearray):
         return '0x' + ''.join([('0'+hex(c)[2:])[-2:] for c in v])
     elif t == time.struct_time:
-        return u'%04d-%02d-%02d %02d:%02d:%02d' % (
+        return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
             v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
-    elif t == datetime.datetime:
-        return "timestamp '" + v.isoformat() + "'"
-    elif t == datetime.date:
-        return "date '" + str(v) + "'"
-    elif t == datetime.timedelta:
-        return "interval '" + str(v) + "'"
     elif t == int or t == float:
         return str(v)
     elif t == decimal.Decimal:
