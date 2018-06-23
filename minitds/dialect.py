@@ -9,10 +9,15 @@ from sqlalchemy.dialects.mssql.base import MSDialect, MSIdentifierPreparer
 from sqlalchemy import types as sqltypes, util
 
 """
-from sqlalchemy.dialects import registry
-registry.register("mssql.minitds", "minitds.dialect", "MSDialect_minitds")
+sqlalchemy minitds dialect.
 
-engine = create_engine('mssql+minitds://sa:secret@localhost/test')
+::
+
+    from sqlalchemy.dialects import registry
+    registry.register("mssql.minitds", "minitds.dialect", "MSDialect_minitds")
+    
+    engine = create_engine('mssql+minitds://user:password@host/database')
+
 """
 
 
