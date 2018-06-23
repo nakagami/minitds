@@ -52,7 +52,7 @@ Timestamp = datetime.datetime
 
 
 def Binary(b):
-    return bytearray(b)
+    return b if hasattr(b, 'decode') else str(b)
 
 
 class DBAPITypeObject:
