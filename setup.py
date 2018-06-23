@@ -20,5 +20,5 @@ setup(
     description='Yet another MS SQLServer database driver',
     long_description=open('README.rst').read(),
     license="MIT",
-    py_modules=['minitds'],
+    packages=['minitds'],
 )
