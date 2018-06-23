@@ -38,7 +38,6 @@ import threading
 from argparse import ArgumentParser
 
 VERSION = (0, 4, 4)
-__version__ = '%s.%s.%s' % VERSION
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
