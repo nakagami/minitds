@@ -2,7 +2,7 @@
 ##############################################################################
 # The MIT License (MIT)
 #
-# Copyright (c) 2016-2017 Hajime Nakagami
+# Copyright (c) 2016-2018 Hajime Nakagami
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,10 +34,9 @@ import binascii
 import uuid
 import struct
 import ssl
-import threading
 from argparse import ArgumentParser
 
-VERSION = (0, 4, 4)
+VERSION = (0, 5, 0)
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
