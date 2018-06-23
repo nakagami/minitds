@@ -886,10 +886,14 @@ class Cursor(object):
         self.description = []
         self.args = args
         if args:
-            escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
+            if isinstance(args, dict):
+                escaped_args = {k: escaped_parameter(v).replace('%', '%%') for k, v in args.items()}
+            else:
+                escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
             query = query.replace('%', '%%').replace('%%s', '%s')
             query = query % escaped_args
             query = query.replace('%%', '%')
+
         self.query = query
         self.description, self._rows, self._rowcount = self.connection._execute(query)
 
