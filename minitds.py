@@ -1069,7 +1069,7 @@ class Connection(object):
         self._packet_id = (self._packet_id + 1) % 256
 
     def is_connect(self):
-            return bool(self.sock)
+        return bool(self.sock)
 
     def cursor(self):
         return Cursor(self)
