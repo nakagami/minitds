@@ -438,7 +438,10 @@ def get_sql_batch_bytes(transaction_id, query):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
-    buf += transaction_id
+    if transaction_id:
+        buf += transaction_id
+    else:
+        buf += b'\x00' * 8
     buf += _int_to_4bytes(1)        # request count
 
     buf += _str_to_bytes(query)
@@ -893,6 +896,9 @@ class Cursor(object):
                 query = query.replace('%%', '%')
 
         self.query = query
+
+        if not self.connection.transaction_id:
+            self.connection.begin()
         self.description, self._rows, self._rowcount = self.connection._execute(query)
 
     def executemany(self, query, seq_of_params):
@@ -984,6 +990,7 @@ class Connection(object):
         self.timeout = timeout
         self.autocommit = autocommit
         self._packet_id = 0
+        self.transaction_id = None
         self.sslobj = self.incoming = self.outgoing = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -999,7 +1006,6 @@ class Connection(object):
 
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
-        self.begin()
 
     def __enter__(self):
         return self
