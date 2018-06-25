@@ -1079,8 +1079,8 @@ class Connection(object):
     def is_connect(self):
         return bool(self.sock)
 
-    def cursor(self):
-        return Cursor(self)
+    def cursor(self, factory=Cursor):
+        return factory(self)
 
     def _execute(self, query):
         self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
