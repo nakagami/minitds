@@ -568,6 +568,7 @@ def _parse_description_type(data):
         INT2TYPE: 2,
         INT4TYPE: 4,
         INT8TYPE: 8,
+        FLT8TYPE: 8,
         DATETIM4TYPE: 4,
         DATETIMETYPE: 8,
         DATENTYPE: 3,
