@@ -859,6 +859,7 @@ class Cursor(object):
         self.arraysize = 1
         self.query = None
         self.last_sql = self.last_params = None
+        self._closed = True
 
     def __enter__(self):
         return self
@@ -905,6 +906,7 @@ class Cursor(object):
         self.description, self._rows, self._rowcount = self.connection._execute(s)
         self.last_sql = query
         self.last_params = args
+        self._closed = False
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
@@ -921,6 +923,7 @@ class Cursor(object):
             self._rows = self._rows[1:]
         else:
             row = None
+            self._closed = True
         return row
 
     def fetchmany(self, size=1):
@@ -935,10 +938,11 @@ class Cursor(object):
     def fetchall(self):
         rows = self._rows
         self._rows = []
+        self._closed = True
         return rows
 
     def close(self):
-        self.connection = None
+        self._closed = True
 
     @property
     def rowcount(self):
@@ -946,7 +950,7 @@ class Cursor(object):
 
     @property
     def closed(self):
-        return self.connection is None or not self.connection.is_connect()
+        return self._closed or not self.connection.is_connect()
 
     def __iter__(self):
         return self
