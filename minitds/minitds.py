@@ -455,7 +455,10 @@ def get_rpc_request_bytes(connection, procname, params=[]):
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
-    buf += connection.transaction_id
+    if connection.transaction_id:
+        buf += connection.transaction_id
+    else:
+        buf += b'\x00' * 8
     buf += _int_to_4bytes(1)        # request count
 
     buf += _int_to_2bytes(len(procname))
