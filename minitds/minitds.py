@@ -1002,7 +1002,6 @@ class Connection(object):
         self.autocommit = autocommit
         self._packet_id = 0
         self.transaction_id = None
-        self.is_dirty = False
         self.sslobj = self.incoming = self.outgoing = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1101,8 +1100,6 @@ class Connection(object):
             token, status, spid, more_data = self._read_response_packet()
             data += more_data
 
-        self.is_dirty = True
-
         description = []
         rows = []
         rowcount = 0
@@ -1176,27 +1173,19 @@ class Connection(object):
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = parse_transaction_id(data)
 
-    def _commit(self):
+    def commit(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
-        self.is_dirty = False
-
-    def commit(self):
-        self._commit()
-        self.begin()
-
-    def _rollback(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
-        self._read_response_packet()
-        self.is_dirty = False
+        self.transaction_id = None
 
     def rollback(self):
-        self._rollback()
-        self.begin()
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
+        self._read_response_packet()
+        self.transaction_id = None
 
     def close(self):
-        if self.is_dirty:
-            self._rollback()
+        if self.transaction_id:
+            self.rollback()
         if self.sock:
             self.sock.close()
             self.sock = None
