@@ -874,9 +874,13 @@ class Cursor(object):
     def callproc(self, procname, args=[]):
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
+
+        self.last_sql = query
+        self.last_params = args
+        if not self.connection.transaction_id:
+            self.connection.begin()
+
         self.description = []
-        self.query = procname
-        self.args = args
         return_status, self.description, self._rows = self.connection._callproc(procname, args)
         return return_status
 
@@ -1170,6 +1174,9 @@ class Connection(object):
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
+        if self.transaction_id:
+            self.rollback()
+        self.begin()
 
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
