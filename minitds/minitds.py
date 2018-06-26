@@ -855,6 +855,7 @@ class Cursor(object):
         self._rowcount = 0
         self.arraysize = 1
         self.query = None
+        self.last_sql = self.last_params = None
 
     def __enter__(self):
         return self
@@ -885,21 +886,22 @@ class Cursor(object):
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
         self.description = []
-        self.args = args
         if args:
             if isinstance(args, dict):
-                query = query % {k: escaped_parameter(v) for k, v in args.items()}
+                s = query % {k: escaped_parameter(v) for k, v in args.items()}
             else:
                 escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
-                query = query.replace('%', '%%').replace('%%s', '%s')
-                query = query % escaped_args
-                query = query.replace('%%', '%')
-
-        self.query = query
+                s = query.replace('%', '%%').replace('%%s', '%s')
+                s = s % escaped_args
+                s = s.replace('%%', '%')
+        else:
+            s = query
 
         if not self.connection.transaction_id:
             self.connection.begin()
-        self.description, self._rows, self._rowcount = self.connection._execute(query)
+        self.description, self._rows, self._rowcount = self.connection._execute(s)
+        self.last_sql = query
+        self.last_params = args
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
