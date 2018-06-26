@@ -950,7 +950,7 @@ class Cursor(object):
 
     def close(self):
         if self._closed:
-            self.connection.rollback()
+            self.connection.commit()
         self._closed = True
 
     @property
@@ -1175,7 +1175,7 @@ class Connection(object):
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
         if self.transaction_id:
-            self.rollback()
+            self.commit()
         self.begin()
 
     def begin(self):
@@ -1195,7 +1195,7 @@ class Connection(object):
 
     def close(self):
         if self.transaction_id:
-            self.rollback()
+            self.commit()
         if self.sock:
             self.sock.close()
             self.sock = None
