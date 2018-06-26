@@ -942,6 +942,8 @@ class Cursor(object):
         return rows
 
     def close(self):
+        if self._closed:
+            self.connection.rollback()
         self._closed = True
 
     @property
