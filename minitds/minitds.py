@@ -423,6 +423,8 @@ def get_login_bytes(host, user, password, database, lcid):
 
 
 def get_trans_request_bytes(transaction_id, req, isolation_level):
+    if transaction_id is None:
+        transaction_id = b'\x00' * 8
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
@@ -1162,7 +1164,7 @@ class Connection(object):
 
 
     def begin(self):
-        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(b'\x00'*8, TM_BEGIN_XACT, self.isolation_level))
+        self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = parse_transaction_id(data)
 
