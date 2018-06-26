@@ -875,7 +875,7 @@ class Cursor(object):
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
 
-        self.last_sql = query
+        self.last_sql = procname
         self.last_params = args
         if not self.connection.transaction_id:
             self.connection.begin()
