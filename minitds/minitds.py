@@ -831,26 +831,24 @@ def parse_error(data):
 
 # -----------------------------------------------------------------------------
 
-def escape_parameter(v):
-    if v is None:
-        return 'NULL'
-
-    t = type(v)
-    if t == str:
-        return "'" + v.replace("'", "''") + "'"
-    elif t == bool:
-        return "TRUE" if v else "FALSE"
-    elif t in (bytes, bytearray):
-        return '0x' + ''.join([('0'+hex(c)[2:])[-2:] for c in v])
-    elif t == time.struct_time:
+def escape_parameter(value):
+    if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
+        return "'%s'" % value
+    elif isinstance(value, time.struct_time):
         return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
             v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
-    elif t == int or t == float:
-        return str(v)
-    elif t == decimal.Decimal:
-        return str(v)
+    elif isinstance(value, uuid.UUID):
+        return "'%s'" % uuid.hex
+    elif isinstance(value, str):
+        return "'%s'" % value.replace("\'", "\'\'")
+    elif isinstance(value, (bytes, bytearray, memoryview)):
+        return "0x%s" % binascii.hexlify(value).decode('ascii')
+    elif isinstance(value, bool):
+        return str(int(value))
+    elif value is None:
+        return "NULL"
     else:
-        return "'" + str(v) + "'"
+        return str(value)
 
 
 class Cursor(object):
@@ -899,7 +897,7 @@ class Cursor(object):
         self.description = []
         if args:
             if isinstance(args, dict):
-                s = query % {k: escaped_parameter(v) for k, v in args.items()}
+                s = query % {k: escape_parameter(v) for k, v in args.items()}
             else:
                 escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
                 s = query.replace('%', '%%').replace('%%s', '%s')
