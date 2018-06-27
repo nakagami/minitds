@@ -1193,8 +1193,6 @@ class Connection(object):
         self.begin()
 
     def close(self):
-        if self.transaction_id:
-            self._commit()
         if self.sock:
             self.sock.close()
             self.sock = None
