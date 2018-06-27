@@ -930,7 +930,6 @@ class Cursor(object):
             self._rows = self._rows[1:]
         else:
             row = None
-            self._closed = True
         return row
 
     def fetchmany(self, size=1):
@@ -945,12 +944,9 @@ class Cursor(object):
     def fetchall(self):
         rows = self._rows
         self._rows = []
-        self._closed = True
         return rows
 
     def close(self):
-        if self._closed:
-            self.connection.commit()
         self._closed = True
 
     @property
@@ -1174,28 +1170,31 @@ class Connection(object):
 
     def set_autocommit(self, autocommit):
         self.autocommit = autocommit
-        if self.transaction_id:
-            self.commit()
-        self.begin()
 
     def begin(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = parse_transaction_id(data)
 
-    def commit(self):
+    def _commit(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
-        self.transaction_id = None
 
-    def rollback(self):
+    def commit(self):
+        self._commit()
+        self.begin()
+
+    def _rollback(self):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
-        self.transaction_id = None
+
+    def rollback(self):
+        self._rollback()
+        self.begin()
 
     def close(self):
         if self.transaction_id:
-            self.commit()
+            self._commit()
         if self.sock:
             self.sock.close()
             self.sock = None
