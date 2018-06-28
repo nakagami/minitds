@@ -860,7 +860,6 @@ class Cursor(object):
         self.arraysize = 1
         self.query = None
         self.last_sql = self.last_params = None
-        self._closed = True
 
     def __enter__(self):
         return self
@@ -911,7 +910,6 @@ class Cursor(object):
         self.description, self._rows, self._rowcount = self.connection._execute(s)
         self.last_sql = query
         self.last_params = args
-        self._closed = False
 
     def executemany(self, query, seq_of_params):
         rowcount = 0
@@ -945,15 +943,11 @@ class Cursor(object):
         return rows
 
     def close(self):
-        self._closed = True
+        pass
 
     @property
     def rowcount(self):
         return self._rowcount
-
-    @property
-    def closed(self):
-        return self._closed or not self.connection.is_connect()
 
     def __iter__(self):
         return self
