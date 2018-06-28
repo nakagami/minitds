@@ -175,7 +175,8 @@ TDS_OFFSET_TOKEN = 0x78
 TDS_TOKEN_COLMETADATA = 0x81
 TDS_ORDER_TOKEN = 0xA9
 TDS_ERROR_TOKEN = 0xAA
-TDS_TOKEN_ENVCHANGE = 0xE3
+TDS_INFO_TOKEN = 0xAB
+TDS_ENVCHANGE_TOKEN = 0xE3
 TDS_ROW_TOKEN = 0xD1
 TDS_NBCROW_TOKEN = 0xD2
 TDS_DONE_TOKEN = 0xFD
@@ -551,7 +552,7 @@ def _parse_variant(data, ln):
 def parse_transaction_id(data):
     "return transaction_id"
     t, data = _parse_byte(data)
-    assert t == TDS_TOKEN_ENVCHANGE
+    assert t == TDS_ENVCHANGE_TOKEN
     _, data = _parse_int(data, 2)   # packet length
     e, data = _parse_byte(data)
     assert e == TDS_ENV_BEGINTRANS
@@ -1102,6 +1103,12 @@ class Connection(object):
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
                 raise parse_error(data)
+            elif data[0] == TDS_INFO_TOKEN:
+                ln = _bytes_to_int(data[1:3])
+                info_num = _bytes_to_int(data[3:7])
+                msg_ln = _bytes_to_int(data[9:11])
+                message = _bytes_to_str(data[11:msg_ln*2+11])
+                data = data[ln:]
             elif data[0] == TDS_TOKEN_COLMETADATA:
                 description, data = parse_description(data)
             elif data[0] == TDS_ROW_TOKEN:
@@ -1117,12 +1124,13 @@ class Connection(object):
                 ln = _bytes_to_int(data[1:3])
                 data = data[3+ln:]
             else:
+                # print("Unknown token: {}".format(hex(data[0])))
                 break
                 #raise ValueError("Unknown token: {}".format(hex(data[0])))
 
         if self.autocommit:
             self.commit()
-
+        # print(query, rowcount)
         return description, rows, rowcount
 
 
