@@ -831,7 +831,7 @@ def parse_error(data):
 
 # -----------------------------------------------------------------------------
 
-def escape_parameter(value):
+def quote_value(value):
     if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
         return "'%s'" % value
     elif isinstance(value, time.struct_time):
@@ -897,9 +897,9 @@ class Cursor(object):
         self.description = []
         if args:
             if isinstance(args, dict):
-                s = query % {k: escape_parameter(v) for k, v in args.items()}
+                s = query % {k: quote_value(v) for k, v in args.items()}
             else:
-                escaped_args = tuple(escape_parameter(arg).replace('%', '%%') for arg in args)
+                escaped_args = tuple(quote_value(arg).replace('%', '%%') for arg in args)
                 s = query.replace('%', '%%').replace('%%s', '%s')
                 s = s % escaped_args
                 s = s.replace('%%', '%')
