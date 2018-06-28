@@ -1108,6 +1108,7 @@ class Connection(object):
                 info_num = _bytes_to_int(data[3:7])
                 msg_ln = _bytes_to_int(data[9:11])
                 message = _bytes_to_str(data[11:msg_ln*2+11])
+                # print("TDS_INFO_TOKEN:", message)
                 data = data[ln:]
             elif data[0] == TDS_TOKEN_COLMETADATA:
                 description, data = parse_description(data)
