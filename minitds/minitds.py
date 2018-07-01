@@ -143,7 +143,7 @@ class UTC(datetime.tzinfo):
         return datetime.timedelta(0)
 
 def DEBUG_OUTPUT(s):
-    # print(s)
+    # print(s, file=sys.stderr)
     pass
 
 # -----------------------------------------------------------------------------
@@ -851,6 +851,7 @@ class Cursor(object):
 
 
     def callproc(self, procname, args=[]):
+        DEBUG_OUTPUT('callproc:%s' % query)
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
 
@@ -1095,6 +1096,7 @@ class Connection(object):
         return factory(self)
 
     def _execute(self, query):
+        DEBUG_OUTPUT(query)
         self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
         token, status, spid, data = self._read_response_packet()
         while status == 0:
@@ -1138,7 +1140,6 @@ class Connection(object):
 
         if self.autocommit:
             self.commit()
-        DEBUG_OUTPUT("%s\nrowcount=%d" % (query, rowcount))
         return description, rows, rowcount
 
 
@@ -1205,13 +1206,14 @@ class Connection(object):
         self.begin()
 
     def close(self):
-        DEBUG_OUTPUT('close()')
         if self.sock:
+            DEBUG_OUTPUT('close():{}:{}:{}'.format(self.host, self.database, self.autocommit))
             self.sock.close()
             self.sock = None
 
 
-def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, autocommit=False, port=1433, lcid=1033, encoding='latin1', use_ssl=None, timeout=None):
+def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, autocommit=False, port=1433, lcid=1033, encoding='utf8', use_ssl=None, timeout=None):
+    DEBUG_OUTPUT('connect():{}:{}:{}'.format(host, database, autocommit))
     return Connection(user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout)
 
 
