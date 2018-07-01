@@ -143,7 +143,7 @@ class UTC(datetime.tzinfo):
         return datetime.timedelta(0)
 
 def DEBUG_OUTPUT(s):
-    #print(s)
+    # print(s)
     pass
 
 # -----------------------------------------------------------------------------
@@ -1104,7 +1104,6 @@ class Connection(object):
         description = []
         rows = []
         rowcount = 0
-
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
                 raise self.parse_error(query, data)
@@ -1127,6 +1126,9 @@ class Connection(object):
                 rowcount += _bytes_to_int(data[5:13])
                 data = data[13:]
             elif data[0] == TDS_ORDER_TOKEN:
+                ln = _bytes_to_int(data[1:3])
+                data = data[3+ln:]
+            elif data[0] in (TDS_ENVCHANGE_TOKEN, ):
                 ln = _bytes_to_int(data[1:3])
                 data = data[3+ln:]
             else:
