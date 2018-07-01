@@ -142,6 +142,9 @@ class UTC(datetime.tzinfo):
     def dst(self, dt):
         return datetime.timedelta(0)
 
+def DEBUG_OUTPUT(s):
+    #print(s)
+    pass
 
 # -----------------------------------------------------------------------------
 BUFSIZE = 4096
@@ -549,19 +552,6 @@ def _parse_variant(data, ln):
     return v, data
 
 
-def parse_transaction_id(data):
-    "return transaction_id"
-    if data[0] == TDS_ERROR_TOKEN:
-        raise parse_error(data)
-    t, data = _parse_byte(data)
-    assert t == TDS_ENVCHANGE_TOKEN
-    _, data = _parse_int(data, 2)   # packet length
-    e, data = _parse_byte(data)
-    assert e == TDS_ENV_BEGINTRANS
-    ln, data = _parse_byte(data)
-    assert ln == 8                  # transaction id length
-    return data[:ln], data[ln:]
-
 
 def _parse_description_type(data):
     user_type, data = _parse_uint(data, 4)
@@ -612,7 +602,7 @@ def _parse_description_type(data):
     elif type_id in (BIGBINARYTYPE,):
         size, data = _parse_int(data, 2)
     else:
-        print("_parse_description_type() Unknown type_id:", type_id)
+        DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" %  type_id)
 
     name, data = _parse_str(data, 1)
     return type_id, name, size, precision, scale, null_ok, data
@@ -819,17 +809,6 @@ def parse_nbcrow(description, encoding, data):
         row.append(v)
     return row, data
 
-
-def parse_error(data):
-    assert data[0] == TDS_ERROR_TOKEN
-    err_num = _bytes_to_int(data[3:7])
-    msg_ln = _bytes_to_int(data[9:11])
-    message = _bytes_to_str(data[11:msg_ln*2+11])
-    if err_num in (102, 207, 208, 2812, 4104):
-        return ProgrammingError("{}:{}".format(err_num, message))
-    elif err_num in (515, 547, 2601, 2627):
-        return IntegrityError("{}:{}".format(err_num, message))
-    return OperationalError("{}:{}".format(err_num, message))
 
 
 # -----------------------------------------------------------------------------
@@ -1085,6 +1064,30 @@ class Connection(object):
         )
         self._packet_id = (self._packet_id + 1) % 256
 
+    def parse_transaction_id(self, data):
+        "return transaction_id"
+        if data[0] == TDS_ERROR_TOKEN:
+            raise self.parse_error('begin()', data)
+        t, data = _parse_byte(data)
+        assert t == TDS_ENVCHANGE_TOKEN
+        _, data = _parse_int(data, 2)   # packet length
+        e, data = _parse_byte(data)
+        assert e == TDS_ENV_BEGINTRANS
+        ln, data = _parse_byte(data)
+        assert ln == 8                  # transaction id length
+        return data[:ln], data[ln:]
+
+    def parse_error(self, query, data):
+        assert data[0] == TDS_ERROR_TOKEN
+        err_num = _bytes_to_int(data[3:7])
+        msg_ln = _bytes_to_int(data[9:11])
+        message = _bytes_to_str(data[11:msg_ln*2+11])
+        if err_num in (102, 207, 208, 2812, 4104):
+            return ProgrammingError("{}:{}:{}".format(err_num, message, query))
+        elif err_num in (515, 547, 2601, 2627):
+            return IntegrityError("{}:{}:{}".format(err_num, message, query))
+        return OperationalError("{}:{}:{}".format(err_num, message, query))
+
     def is_connect(self):
         return bool(self.sock)
 
@@ -1104,13 +1107,13 @@ class Connection(object):
 
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
-                raise parse_error(data)
+                raise self.parse_error(query, data)
             elif data[0] == TDS_INFO_TOKEN:
                 ln = _bytes_to_int(data[1:3])
                 info_num = _bytes_to_int(data[3:7])
                 msg_ln = _bytes_to_int(data[9:11])
                 message = _bytes_to_str(data[11:msg_ln*2+11])
-                # print("TDS_INFO_TOKEN:", message)
+                DEBUG_OUTPUT("TDS_INFO_TOKEN:%s" % message)
                 data = data[ln:]
             elif data[0] == TDS_TOKEN_COLMETADATA:
                 description, data = parse_description(data)
@@ -1127,13 +1130,13 @@ class Connection(object):
                 ln = _bytes_to_int(data[1:3])
                 data = data[3+ln:]
             else:
-                # print("Unknown token: {}".format(hex(data[0])))
+                DEBUG_OUTPUT("Unknown token: {}".format(hex(data[0])))
                 break
                 #raise ValueError("Unknown token: {}".format(hex(data[0])))
 
         if self.autocommit:
             self.commit()
-        # print(query, rowcount)
+        DEBUG_OUTPUT("%s\nrowcount=%d" % (query, rowcount))
         return description, rows, rowcount
 
 
@@ -1152,7 +1155,7 @@ class Connection(object):
             return_status = None
 
         if data[0] == TDS_ERROR_TOKEN:
-            raise parse_error(data)
+            raise parse_error(procname, data)
         elif data[0] == TDS_TOKEN_COLMETADATA:
             description, data = parse_description(data)
         else:
@@ -1175,19 +1178,23 @@ class Connection(object):
         self.autocommit = autocommit
 
     def begin(self):
+        DEBUG_OUTPUT('begin()')
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
-        self.transaction_id, _ = parse_transaction_id(data)
+        self.transaction_id, _ = self.parse_transaction_id(data)
 
     def _commit(self):
+        DEBUG_OUTPUT('_commit()')
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
 
     def commit(self):
+        DEBUG_OUTPUT('commit()')
         self._commit()
         self.begin()
 
     def _rollback(self):
+        DEBUG_OUTPUT('_rollback()')
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
 
@@ -1196,6 +1203,7 @@ class Connection(object):
         self.begin()
 
     def close(self):
+        DEBUG_OUTPUT('close()')
         if self.sock:
             self.sock.close()
             self.sock = None
