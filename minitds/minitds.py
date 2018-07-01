@@ -551,6 +551,8 @@ def _parse_variant(data, ln):
 
 def parse_transaction_id(data):
     "return transaction_id"
+    if data[0] == TDS_ERROR_TOKEN:
+        raise parse_error(data)
     t, data = _parse_byte(data)
     assert t == TDS_ENVCHANGE_TOKEN
     _, data = _parse_int(data, 2)   # packet length
