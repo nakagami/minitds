@@ -851,7 +851,7 @@ class Cursor(object):
 
 
     def callproc(self, procname, args=[]):
-        DEBUG_OUTPUT('callproc:%s' % query)
+        DEBUG_OUTPUT('callproc:%s' % procname)
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
 
