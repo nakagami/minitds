@@ -862,6 +862,8 @@ class Cursor(object):
 
         self.description = []
         return_status, self.description, self._rows = self.connection._callproc(procname, args)
+        if self.connection.autocommit:
+            self.connection.commit()
         return return_status
 
     def nextset(self, procname, args=[]):
@@ -891,6 +893,8 @@ class Cursor(object):
         if not self.connection.transaction_id:
             self.connection.begin()
         self.description, self._rows, self._rowcount = self.connection._execute(s)
+        if self.connection.autocommit:
+            self.connection.commit()
         self.last_sql = query
         self.last_params = args
 
@@ -1138,8 +1142,6 @@ class Connection(object):
                 break
                 #raise ValueError("Unknown token: {}".format(hex(data[0])))
 
-        if self.autocommit:
-            self.commit()
         return description, rows, rowcount
 
 
@@ -1172,8 +1174,6 @@ class Connection(object):
             else:
                 assert False
             rows.append(row)
-        if self.autocommit:
-            self.commit()
         return return_status, description, rows
 
 
