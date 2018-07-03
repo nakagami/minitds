@@ -142,8 +142,8 @@ class UTC(datetime.tzinfo):
     def dst(self, dt):
         return datetime.timedelta(0)
 
-def DEBUG_OUTPUT(s):
-    # print(s, file=sys.stderr)
+def DEBUG_OUTPUT(s, end='\n'):
+    # print(s, file=sys.stderr, end=end)
     pass
 
 # -----------------------------------------------------------------------------
@@ -991,6 +991,8 @@ class Connection(object):
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
 
+        DEBUG_OUTPUT('{}:connect():{}:{}:{}'.format(id(self), self.host, self.database, self.autocommit))
+
         self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
         _, _, _, body = self._read_response_packet()
 
@@ -1100,7 +1102,7 @@ class Connection(object):
         return factory(self)
 
     def _execute(self, query):
-        DEBUG_OUTPUT(query)
+        DEBUG_OUTPUT('{}:_execute():{}'.format(id(self), query), end='')
         self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
         token, status, spid, data = self._read_response_packet()
         while status == 0:
@@ -1142,10 +1144,12 @@ class Connection(object):
                 break
                 #raise ValueError("Unknown token: {}".format(hex(data[0])))
 
+        DEBUG_OUTPUT(":={}".format(rowcount))
         return description, rows, rowcount
 
 
     def _callproc(self, procname, args):
+        DEBUG_OUTPUT('_callback()')
         self._send_message(TDS_RPC, get_rpc_request_bytes(self, procname, args))
 
         token, status, spid, data = self._read_response_packet()
@@ -1178,6 +1182,7 @@ class Connection(object):
 
 
     def set_autocommit(self, autocommit):
+        DEBUG_OUTPUT('set_autocommit():{}'.format(autocommit))
         self.autocommit = autocommit
 
     def begin(self):
@@ -1187,7 +1192,7 @@ class Connection(object):
         self.transaction_id, _ = self.parse_transaction_id(data)
 
     def _commit(self):
-        DEBUG_OUTPUT('_commit()')
+        DEBUG_OUTPUT('{}:_commit()'.format(id(self.connection)))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
 
@@ -1197,7 +1202,7 @@ class Connection(object):
         self.begin()
 
     def _rollback(self):
-        DEBUG_OUTPUT('_rollback()')
+        DEBUG_OUTPUT('{}:_rollback()'.format(id(self.connection)))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
 
