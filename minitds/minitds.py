@@ -1182,7 +1182,7 @@ class Connection(object):
 
 
     def set_autocommit(self, autocommit):
-        DEBUG_OUTPUT('set_autocommit():{}'.format(autocommit))
+        DEBUG_OUTPUT('{}:set_autocommit():{}'.format(id(self), autocommit))
         self.autocommit = autocommit
 
     def begin(self):
