@@ -1186,13 +1186,14 @@ class Connection(object):
         self.autocommit = autocommit
 
     def begin(self):
-        DEBUG_OUTPUT('begin()')
+        DEBUG_OUTPUT('{}:begin()'.format(id(self)), end=' ')
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = self.parse_transaction_id(data)
+        DEBUG_OUTPUT('transaction_id={}'.format(self.transaction_id))
 
     def _commit(self):
-        DEBUG_OUTPUT('{}:_commit()'.format(id(self)))
+        DEBUG_OUTPUT('{}:_commit() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
 
@@ -1202,7 +1203,7 @@ class Connection(object):
         self.begin()
 
     def _rollback(self):
-        DEBUG_OUTPUT('{}:_rollback()'.format(id(self)))
+        DEBUG_OUTPUT('{}:_rollback() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
 
