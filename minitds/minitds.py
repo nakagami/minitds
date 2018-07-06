@@ -1196,20 +1196,22 @@ class Connection(object):
         DEBUG_OUTPUT('{}:_commit() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
+        self.transaction_id = None
 
     def commit(self):
         DEBUG_OUTPUT('commit()')
         self._commit()
-        self.begin()
+#        self.begin()
 
     def _rollback(self):
         DEBUG_OUTPUT('{}:_rollback() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
+        self.transaction_id = None
 
     def rollback(self):
         self._rollback()
-        self.begin()
+#        self.begin()
 
     def close(self):
         if self.sock:
