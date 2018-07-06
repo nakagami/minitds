@@ -984,6 +984,7 @@ class Connection(object):
         self.autocommit = autocommit
         self._packet_id = 0
         self.transaction_id = None
+        self.is_dirty = False
         self.sslobj = self.incoming = self.outgoing = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1102,6 +1103,7 @@ class Connection(object):
         return factory(self)
 
     def _execute(self, query):
+        self.is_dirty = True
         DEBUG_OUTPUT('{}:_execute():{}'.format(id(self), query), end='')
         self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
         token, status, spid, data = self._read_response_packet()
@@ -1190,6 +1192,7 @@ class Connection(object):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
         self.transaction_id, _ = self.parse_transaction_id(data)
+        self.is_dirty = False
         DEBUG_OUTPUT('transaction_id={}'.format(self.transaction_id))
 
     def _commit(self):
@@ -1197,21 +1200,24 @@ class Connection(object):
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
         self.transaction_id = None
+        self.is_dirty = False
 
     def commit(self):
         DEBUG_OUTPUT('commit()')
-        self._commit()
-#        self.begin()
+        if self.is_dirty:
+            self._commit()
 
     def _rollback(self):
         DEBUG_OUTPUT('{}:_rollback() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
         self.transaction_id = None
+        self.is_dirty = False
 
     def rollback(self):
-        self._rollback()
-#        self.begin()
+        DEBUG_OUTPUT('rollback()')
+        if self.is_dirty:
+            self._rollback()
 
     def close(self):
         if self.sock:
