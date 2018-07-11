@@ -790,7 +790,7 @@ def parse_row(description, encoding, data):
     for _, type_id, size, _, precision, scale, _ in description:
         v, data = _parse_column(type_id, size, precision, scale, encoding, data)
         row.append(v)
-    return row, data
+    return tuple(row), data
 
 def parse_nbcrow(description, encoding, data):
     t, data = _parse_byte(data)
@@ -807,7 +807,7 @@ def parse_nbcrow(description, encoding, data):
         else:
             v, data = _parse_column(type_id, size, precision, scale, encoding, data)
         row.append(v)
-    return row, data
+    return tuple(row), data
 
 
 
