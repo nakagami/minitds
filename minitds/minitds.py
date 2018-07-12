@@ -1142,9 +1142,7 @@ class Connection(object):
                 ln = _bytes_to_int(data[1:3])
                 data = data[3+ln:]
             else:
-                DEBUG_OUTPUT("Unknown token: {}".format(hex(data[0])))
-                break
-                #raise ValueError("Unknown token: {}".format(hex(data[0])))
+                raise ValueError("Unknown token: {}".format(hex(data[0])))
 
         DEBUG_OUTPUT(":={}".format(rowcount))
         return description, rows, rowcount
