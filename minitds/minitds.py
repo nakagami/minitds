@@ -544,7 +544,7 @@ def _parse_variant(data, ln):
     elif type_id in (DATETIMETYPE, ):
         d, data2 = _parse_int(data2, 4)
         t, data2 = _parse_int(data2, 4)
-        ms = int(round(t % 300 * 10 / 3.0))
+        ms = t % 300 * 10 // 3
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
     else:
@@ -720,7 +720,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
-        ms = int(round(t % 300 * 10 / 3.0))
+        ms = t % 300 * 10 // 3
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
     elif type_id in (DATETIME2NTYPE, ):
@@ -741,7 +741,7 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
             assert ln == size
             d, data = _parse_int(data, ln//2)
             t, data = _parse_int(data, ln//2)
-            ms = int(round(t % 300 * 10 / 3.0))
+            ms = t % 300 * 10 // 3
             secs = t // 300
             v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
     elif type_id in (DATETIMEOFFSETNTYPE, ):
