@@ -622,7 +622,7 @@ def parse_description(data):
     return description, data
 
 
-def _parse_column(type_id, size, precision, scale, encoding, data):
+def _parse_column(name, type_id, size, precision, scale, encoding, data):
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
     elif type_id in (BITNTYPE, ):
@@ -787,8 +787,8 @@ def parse_row(description, encoding, data):
     assert t == TDS_ROW_TOKEN
 
     row = []
-    for _, type_id, size, _, precision, scale, _ in description:
-        v, data = _parse_column(type_id, size, precision, scale, encoding, data)
+    for name, type_id, size, _, precision, scale, _ in description:
+        v, data = _parse_column(name, type_id, size, precision, scale, encoding, data)
         row.append(v)
     return tuple(row), data
 
@@ -801,11 +801,11 @@ def parse_nbcrow(description, encoding, data):
     data = data[null_bitmap_len:]
 
     row = []
-    for i, (_, type_id, size, _, precision, scale, _) in enumerate(description):
+    for i, (name, type_id, size, _, precision, scale, _) in enumerate(description):
         if null_bitmap[i // 8] & (1 << (i % 8)):
             v = None
         else:
-            v, data = _parse_column(type_id, size, precision, scale, encoding, data)
+            v, data = _parse_column(name, type_id, size, precision, scale, encoding, data)
         row.append(v)
     return tuple(row), data
 
