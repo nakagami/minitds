@@ -684,11 +684,11 @@ def _parse_column(type_id, size, precision, scale, encoding, data):
         if ln == -1:
             v = None
         else:
-            if size == -1:
+            if size == -1 and data[:6] == b'\x00\x00\x00\x00\x00\x00':
+                ln = _bytes_to_int(data[6:10])
                 data = data[10:]
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
-
     elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
