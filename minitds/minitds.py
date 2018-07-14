@@ -679,14 +679,37 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v = None
         else:
             v, data = data[:ln], data[ln:]
-    elif type_id in (NCHARTYPE, NVARCHARTYPE):
-        ln, data = _parse_int(data, 2)
-        if ln == -1:
-            v = None
-        else:
-            if size == -1 and data[:6] == b'\x00\x00\x00\x00\x00\x00':
-                ln = _bytes_to_int(data[6:10])
+    elif type_id in (NCHARTYPE, ):
+        if size == -1:
+            ln, data = _parse_int(data, 2)
+            if ln == -1:
+                v = None
+            else:
                 data = data[10:]
+            v, data = data[:ln], data[ln:]
+            v = _bytes_to_str(v)
+        else:
+            ln, data = _parse_int(data, 2)
+            v, data = data[:ln], data[ln:]
+            v = _bytes_to_str(v)
+    elif type_id in (NVARCHARTYPE, ):
+        if size == -1:
+            ln, data = _parse_int(data, 2)
+            if ln == -1:
+                v = None
+            else:
+                # http://msdn.microsoft.com/en-us/library/dd340469.aspx
+                if data[:6] == b'\x00' * 6:
+                    data = data[10:]
+                else:
+                    # TODO:
+                    data = data[10:]
+                    print('data=', data)
+                    print(binascii.hexlify(data).decode('ascii'))
+            v, data = data[:ln], data[ln:]
+            v = _bytes_to_str(v)
+        else:
+            ln, data = _parse_int(data, 2)
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
     elif type_id in (BIGCHARTYPE, ):
