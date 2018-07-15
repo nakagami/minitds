@@ -839,8 +839,6 @@ def quote_value(value):
     elif isinstance(value, time.struct_time):
         return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
             v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
-    elif isinstance(value, uuid.UUID):
-        return "'%s'" % value.hex
     elif isinstance(value, str):
         return "'%s'" % value.replace("\'", "\'\'")
     elif isinstance(value, (bytes, bytearray, memoryview)):
