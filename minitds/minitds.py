@@ -698,16 +698,13 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             if ln == -1:
                 v = None
             else:
-                # http://msdn.microsoft.com/en-us/library/dd340469.aspx
-                if data[:6] == b'\x00' * 6:
-                    data = data[10:]
-                else:
-                    # TODO:
-                    data = data[10:]
-                    print('data=', data)
-                    print(binascii.hexlify(data).decode('ascii'))
-            v, data = data[:ln], data[ln:]
-            v = _bytes_to_str(v)
+                while ln and data[:6] != b'\x00'* 6:
+                    _, data = data[:ln], data[ln:]
+                    ln, data = _parse_int(data, 2)
+                    _, data = data[:ln], data[ln:]
+                data = data[6:]
+                ln, data = _parse_int(data, 4)
+                v, data = _bytes_to_str(data[:ln]), data[ln:]
         else:
             ln, data = _parse_int(data, 2)
             v, data = data[:ln], data[ln:]
