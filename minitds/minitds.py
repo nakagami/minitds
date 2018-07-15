@@ -143,7 +143,7 @@ class UTC(datetime.tzinfo):
         return datetime.timedelta(0)
 
 def DEBUG_OUTPUT(s, end='\n'):
-    print(s, file=sys.stderr, end=end)
+    # print(s, file=sys.stderr, end=end)
     pass
 
 # -----------------------------------------------------------------------------
@@ -221,7 +221,6 @@ NVARCHARTYPE = 231  # 0xE7
 NCHARTYPE = 239  # 0xEF
 BIGVARBINTYPE = 165  # 0xA5
 BIGBINARYTYPE = 173  # 0xAD
-GUIDTYPE = 36  # 0x24
 SSVARIANTTYPE = 98  # 0x62
 UDTTYPE = 240  # 0xF0
 XMLTYPE = 241  # 0xF1
@@ -571,7 +570,6 @@ def _parse_description_type(data):
         DATETIM4TYPE: 4,
         DATETIMETYPE: 8,
         DATENTYPE: 3,
-        GUIDTYPE: 18,
     }.get(type_id, 0)
 
     if size != 0:
@@ -604,10 +602,9 @@ def _parse_description_type(data):
     elif type_id in (BIGBINARYTYPE,):
         size, data = _parse_int(data, 2)
     elif type_id in (GUIDTYPE,):
-        size, data = _parse_int(data, 2)
+        size, data = _parse_int(data, 1)
     else:
         DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" %  type_id)
-
     name, data = _parse_str(data, 1)
     return type_id, name, size, precision, scale, null_ok, data
 
@@ -859,7 +856,7 @@ def quote_value(value):
     elif value is None:
         return "NULL"
     else:
-        return str(value)
+        return "'%s'" % (str(value), )
 
 
 class Cursor(object):
