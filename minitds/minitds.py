@@ -603,6 +603,8 @@ def _parse_description_type(data):
         size, data = _parse_int(data, 2)
     elif type_id in (BIGBINARYTYPE,):
         size, data = _parse_int(data, 2)
+    elif type_id in (GUIDTYPE,):
+        size, data = _parse_int(data, 2)
     else:
         DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" %  type_id)
 
