@@ -143,7 +143,7 @@ class UTC(datetime.tzinfo):
         return datetime.timedelta(0)
 
 def DEBUG_OUTPUT(s, end='\n'):
-    # print(s, file=sys.stderr, end=end)
+    print(s, file=sys.stderr, end=end)
     pass
 
 # -----------------------------------------------------------------------------
@@ -189,6 +189,7 @@ TDS_DONEINPROC_TOKEN = 0xFF
 # Column type
 IMAGETYPE = 34  # 0x22
 TEXTTYPE = 35  # 0x23
+GUIDTYPE = 36  # 0x24
 SYBVARBINARY = 37  # 0x25
 INTNTYPE = 38  # 0x26
 SYBVARCHAR = 39  # 0x27
@@ -570,6 +571,7 @@ def _parse_description_type(data):
         DATETIM4TYPE: 4,
         DATETIMETYPE: 8,
         DATENTYPE: 3,
+        GUIDTYPE: 18,
     }.get(type_id, 0)
 
     if size != 0:
@@ -797,6 +799,13 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v = None
         else:
             v, data = _parse_variant(data, ln)
+    elif type_id in (GUIDTYPE, ):
+        ln, data = _parse_byte(data)
+        if ln == 0:
+            v = None
+        else:
+            assert ln == size
+            v, data = _parse_int(data, ln)
     else:
         raise Error("_parse_column() Unknown type %d" % (type_id,))
     return v, data
