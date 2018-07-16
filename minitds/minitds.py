@@ -553,7 +553,7 @@ def _parse_variant(data, ln):
 
 
 def _parse_uuid(data, ln):
-    v = uuid.UUID(bytes=data[:ln])
+    v = uuid.UUID(bytes_le=data[:ln])
     data = data[ln:]
     return v, data
 
