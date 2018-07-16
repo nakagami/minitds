@@ -213,7 +213,6 @@ FLTNTYPE = 109  # 0x6D
 MONEYNTYPE = 110  # 0x6E
 DATETIMNTYPE = 111  # 0x6F
 MONEY4TYPE = 122  # 0x7A
-
 INT8TYPE = 127  # 0x7F
 BIGCHARTYPE = 175  # 0xAF
 BIGVARCHRTYPE = 167  # 0xA7
@@ -632,6 +631,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
     # DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
+    elif type_id in (FLT8TYPE, ):
+        v, data = struct.unpack("d", data[:size])[0], data[size:]
     elif type_id in (BITNTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:
