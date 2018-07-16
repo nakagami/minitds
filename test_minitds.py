@@ -186,10 +186,21 @@ class TestMiniTds(unittest.TestCase):
 
     def test_uuid(self):
         cur = self.connection.cursor()
-
-        cur.execute("SELECT NEWID()")
+        cur.execute("""
+            DECLARE @myid uniqueidentifier = NEWID();
+            SELECT @myid, CONVERT(varchar(255), @myid) AS 'varchar'
+        """)
         r = cur.fetchone()
         self.assertTrue(isinstance(r[0], uuid.UUID))
+        self.assertEqual(str(r[0]).upper(), r[1].upper())
+        v = r[0]
+        cur.close()
+
+        cur = self.connection.cursor()
+        cur.execute("DECLARE @myid uniqueidentifier = %s; SELECT @myid", [v])
+        r = cur.fetchone()
+        self.assertTrue(isinstance(r[0], uuid.UUID))
+        self.assertEqual(v, r[0])
 
     def test_null_ok(self):
         cur = self.connection.cursor()
