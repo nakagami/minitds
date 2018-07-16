@@ -629,6 +629,7 @@ def parse_description(data):
 
 
 def _parse_column(name, type_id, size, precision, scale, encoding, data):
+    # DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
     elif type_id in (BITNTYPE, ):
