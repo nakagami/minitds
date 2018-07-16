@@ -552,6 +552,11 @@ def _parse_variant(data, ln):
     return v, data
 
 
+def _parse_uuid(data, ln):
+    v = uuid.UUID(bytes=data[:ln])
+    data = data[ln:]
+    return v, data
+
 
 def _parse_description_type(data):
     user_type, data = _parse_uint(data, 4)
@@ -804,7 +809,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v = None
         else:
             assert ln == size
-            v, data = _parse_int(data, ln)
+            v, data = _parse_uuid(data, ln)
     else:
         raise Error("_parse_column() Unknown type %d" % (type_id,))
     return v, data

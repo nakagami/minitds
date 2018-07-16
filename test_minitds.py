@@ -27,6 +27,7 @@ import unittest
 import datetime
 import decimal
 import minitds
+import uuid
 
 
 class TestMiniTds(unittest.TestCase):
@@ -182,6 +183,13 @@ class TestMiniTds(unittest.TestCase):
         cur.execute("select varbinary_column from test_varbinary order by id, varbinary_column")
         self.assertEqual(cur.fetchone()[0], None)
         self.assertEqual(cur.fetchone()[0], d)
+
+    def test_uuid(self):
+        cur = self.connection.cursor()
+
+        cur.execute("SELECT NEWID()")
+        r = cur.fetchone()
+        self.assertTrue(isinstance(r[0], uuid.UUID))
 
     def test_null_ok(self):
         cur = self.connection.cursor()
