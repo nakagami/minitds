@@ -76,12 +76,10 @@ ROWID = DBAPITypeObject()
 
 
 class Error(Exception):
-    def __init__(self, *args):
-        if len(args) > 0:
-            self.message = args[0]
-        else:
-            self.message = 'Database Error'
-        super(Error, self).__init__(*args)
+    def __init__(self, message, err_num=0):
+        self.message = message
+        self.err_num = err_num
+        super(Error, self).__init__()
 
     def __str__(self):
         return self.message
@@ -1130,10 +1128,10 @@ class Connection(object):
         msg_ln = _bytes_to_int(data[9:11])
         message = _bytes_to_str(data[11:msg_ln*2+11])
         if err_num in (102, 207, 208, 2812, 4104):
-            return ProgrammingError("{}:{}:{}".format(err_num, message, query))
+            return ProgrammingError("{}:{}:{}".format(err_num, message, query), err_num)
         elif err_num in (515, 547, 2601, 2627):
-            return IntegrityError("{}:{}:{}".format(err_num, message, query))
-        return OperationalError("{}:{}:{}".format(err_num, message, query))
+            return IntegrityError("{}:{}:{}".format(err_num, message, query), err_num)
+        return OperationalError("{}:{}:{}".format(err_num, message, query), err_num)
 
     def is_connect(self):
         return bool(self.sock)
