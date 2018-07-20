@@ -711,12 +711,11 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                     ln, data = _parse_int(data, 2)
                     _, data = data[:ln], data[ln:]
                     skip_ln += ln + 2
-                    if skip_ln % 2:
-                        data = data[1:]
-                        skip_ln += 1
                 data = data[6:]
                 ln, data = _parse_int(data, 4)
                 v, data = _bytes_to_str(data[:ln]), data[ln:]
+                if skip_ln % 2:
+                    data = data[1:]
         else:
             ln, data = _parse_int(data, 2)
             v, data = data[:ln], data[ln:]
