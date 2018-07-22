@@ -700,24 +700,25 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
     elif type_id in (NVARCHARTYPE, ):
-        if size == -1:
-            ln, data = _parse_int(data, 2)
-            if ln == -1:
-                v = None
-            else:
-                while ln and data[:6] != b'\x00'* 6:
-                    _, data = data[:ln], data[ln:]
-                    ln, data = _parse_int(data, 2)
-                    _, data = data[:ln], data[ln:]
-                    if ln % 2:
-                        data = data[1:]
+        ln, data = _parse_int(data, 2)
+        if ln == -1:
+            v = None
+        elif size == -1:
+            if data[:6] == b'\x00'* 6:
                 data = data[6:]
-                ln, data = _parse_int(data, 4)
-                v, data = _bytes_to_str(data[:ln]), data[ln:]
-        else:
-            ln, data = _parse_int(data, 2)
-            v, data = data[:ln], data[ln:]
-            v = _bytes_to_str(v)
+            else:
+                _, data = data[:ln], data[ln:]
+                ln, data = _parse_int(data, 2)
+                _, data = data[:ln], data[ln:]
+                ln, data = _parse_int(data, 2)
+                _, data = data[:ln], data[ln:]
+                assert data[:4] == b'\x00' * 4
+                data = data[4:]
+            ln, data = _parse_int(data, 4)
+        v, data = data[:ln], data[ln:]
+        v = _bytes_to_str(v)
+        if ln % 2:
+            data = data[1:]
     elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
