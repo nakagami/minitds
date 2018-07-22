@@ -700,6 +700,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
     elif type_id in (NVARCHARTYPE, ):
+        padding = False
         ln, data = _parse_int(data, 2)
         if ln == -1:
             v = None
@@ -710,15 +711,18 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 _, data = data[:ln], data[ln:]
                 ln, data = _parse_int(data, 2)
                 _, data = data[:ln], data[ln:]
+                if ln % 2:
+                    padding = True
+                    data = data[1:]
                 ln, data = _parse_int(data, 2)
                 _, data = data[:ln], data[ln:]
                 assert data[:4] == b'\x00' * 4
                 data = data[4:]
+                if padding:
+                    data = data[1:]
             ln, data = _parse_int(data, 4)
         v, data = data[:ln], data[ln:]
         v = _bytes_to_str(v)
-        if ln % 2:
-            data = data[1:]
     elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
@@ -1152,7 +1156,8 @@ class Connection(object):
         rowcount = 0
         while data and data[0]:
             if data[0] == TDS_ERROR_TOKEN:
-                raise self.parse_error(query, data)
+                obj = self.parse_error(query, data)
+                raise obj
             elif data[0] == TDS_INFO_TOKEN:
                 ln = _bytes_to_int(data[1:3])
                 info_num = _bytes_to_int(data[3:7])
