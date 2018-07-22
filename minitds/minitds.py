@@ -173,6 +173,7 @@ TDS_ENV_BEGINTRANS = 8
 
 # Token type
 TDS_OFFSET_TOKEN = 0x78
+TDS_RETURNSTATUS_TOKEN = 0x79
 TDS_TOKEN_COLMETADATA = 0x81
 TDS_ORDER_TOKEN = 0xA9
 TDS_ERROR_TOKEN = 0xAA
@@ -875,6 +876,7 @@ class Cursor(object):
         self.arraysize = 1
         self.query = None
         self.last_sql = self.last_params = None
+        self.return_stats = None
 
     def __enter__(self):
         return self
@@ -1174,6 +1176,9 @@ class Connection(object):
             elif data[0] in (TDS_ENVCHANGE_TOKEN, ):
                 ln = _bytes_to_int(data[1:3])
                 data = data[3+ln:]
+            elif data[0] in (TDS_RETURNSTATUS_TOKEN, ):
+                ln = _bytes_to_int(data[1:3])
+                data = data[3+ln:]
             else:
                 raise ValueError("Unknown token: {}".format(hex(data[0])))
 
@@ -1192,9 +1197,7 @@ class Connection(object):
 
         if token == TDS_TABULAR_RESULT:
             assert data[-18] == 0x79
-            return_status = _bytes_to_int(data[-17:-13])
-        else:
-            return_status = None
+            self.return_status = _bytes_to_int(data[-17:-13])
 
         if data[0] == TDS_ERROR_TOKEN:
             raise parse_error(procname, data)
@@ -1211,7 +1214,7 @@ class Connection(object):
             else:
                 assert False
             rows.append(row)
-        return return_status, description, rows
+        return self.return_status, description, rows
 
 
     def set_autocommit(self, autocommit):
