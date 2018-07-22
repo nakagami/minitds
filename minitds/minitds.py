@@ -716,10 +716,10 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                     data = data[1:]
                 ln, data = _parse_int(data, 2)
                 _, data = data[:ln], data[ln:]
-                assert data[:4] == b'\x00' * 4
+#                assert data[:4] == b'\x00' * 4
                 data = data[4:]
-                if padding:
-                    data = data[1:]
+#                if padding:
+#                    data = data[1:]
             ln, data = _parse_int(data, 4)
         v, data = data[:ln], data[ln:]
         v = _bytes_to_str(v)
