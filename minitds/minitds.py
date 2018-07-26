@@ -700,7 +700,6 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
     elif type_id in (NVARCHARTYPE, ):
-        padding = False
         ln, data = _parse_int(data, 2)
         if ln == -1:
             v = None
@@ -712,14 +711,10 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 ln, data = _parse_int(data, 2)
                 _, data = data[:ln], data[ln:]
                 if ln % 2:
-                    padding = True
                     data = data[1:]
                 ln, data = _parse_int(data, 2)
                 _, data = data[:ln], data[ln:]
-#                assert data[:4] == b'\x00' * 4
                 data = data[4:]
-#                if padding:
-#                    data = data[1:]
             ln, data = _parse_int(data, 4)
         v, data = data[:ln], data[ln:]
         v = _bytes_to_str(v)
