@@ -855,19 +855,21 @@ def parse_nbcrow(description, encoding, data):
 # -----------------------------------------------------------------------------
 
 def quote_value(value):
-    if isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
-        return "'%s'" % value
-    elif isinstance(value, time.struct_time):
-        return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
-            v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
+    if value is None:
+        return "NULL"
+    elif isinstance(value, bool):
+        return str(int(value))
+    elif isinstance(value, (int, float, decimal.Decimal)):
+        return str(value)
     elif isinstance(value, str):
         return "'%s'" % value.replace("\'", "\'\'")
     elif isinstance(value, (bytes, bytearray, memoryview)):
         return "0x%s" % binascii.hexlify(value).decode('ascii')
-    elif isinstance(value, bool):
-        return str(int(value))
-    elif value is None:
-        return "NULL"
+    elif isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
+        return "'%s'" % value
+    elif isinstance(value, time.struct_time):
+        return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
+            v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
     else:
         return "'%s'" % (str(value), )
 
