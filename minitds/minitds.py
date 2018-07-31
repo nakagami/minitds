@@ -744,13 +744,12 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v = v.decode(encoding)
     elif type_id in (BIGVARCHRTYPE, BIGVARBINTYPE):
         if size == -1:
-            ln = _bytes_to_int(data[:8])
-            data = data[8:]
+            ln, data = _parse_int(data, 8)
             if ln < 0:
                 v = None
             else:
-                ln2 = _bytes_to_int(data[:4])
-                data = data[4:]
+                if ln > 0:
+                    ln, data = _parse_int(data, 4)
                 v, data = data[:ln], data[ln:]
                 data = data[4:] # Unknow pad 4 bytes ???
         else:
