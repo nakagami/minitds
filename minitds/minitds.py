@@ -700,24 +700,32 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             v = _bytes_to_str(v)
     elif type_id in (NVARCHARTYPE, ):
-        ln, data = _parse_int(data, 2)
-        if ln == -1:
-            v = None
-        elif size == -1:
-            if data[:6] == b'\x00'* 6:
-                data = data[6:]
+        if size == -1:
+            ln, data = _parse_int(data, 2)
+            if ln == -1:
+                v = None
             else:
-                _, data = data[:ln], data[ln:]
-                ln, data = _parse_int(data, 2)
-                _, data = data[:ln], data[ln:]
-                if ln % 2:
-                    data = data[1:]
-                ln, data = _parse_int(data, 2)
-                _, data = data[:ln], data[ln:]
-                data = data[4:]
-            ln, data = _parse_int(data, 4)
-        v, data = data[:ln], data[ln:]
-        v = _bytes_to_str(v)
+                if data[:6] == b'\x00'* 6:
+                    data = data[6:]
+                else:
+                    _, data = data[:ln], data[ln:]
+                    ln, data = _parse_int(data, 2)
+                    _, data = data[:ln], data[ln:]
+                    if ln % 2:
+                        data = data[1:]
+                    ln, data = _parse_int(data, 2)
+                    _, data = data[:ln], data[ln:]
+                    data = data[4:]
+                ln, data = _parse_int(data, 4)
+                v, data = data[:ln], data[ln:]
+                v = _bytes_to_str(v)
+        else:
+            ln, data = _parse_int(data, 2)
+            if ln == -1:
+                v = None
+            else:
+                v, data = data[:ln], data[ln:]
+                v = _bytes_to_str(v)
     elif type_id in (BIGCHARTYPE, ):
         ln = _bytes_to_int(data[:2])
         data = data[2:]
