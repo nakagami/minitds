@@ -684,6 +684,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
         ln, data = _parse_int(data, 2)
         if ln == -1:
             v = None
+            assert data[0] == 0xff
+            data = data[1:]
         else:
             v, data = data[:ln], data[ln:]
     elif type_id in (NCHARTYPE, ):
@@ -691,6 +693,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             ln, data = _parse_int(data, 2)
             if ln == -1:
                 v = None
+                assert data[0] == 0xff
+                data = data[1:]
             else:
                 data = data[10:]
             v, data = data[:ln], data[ln:]
@@ -704,6 +708,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             ln, data = _parse_int(data, 2)
             if ln == -1:
                 v = None
+                assert data[0] == 0xff
+                data = data[1:]
             else:
                 if data[:6] == b'\x00'* 6:
                     data = data[6:]
@@ -723,6 +729,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             ln, data = _parse_int(data, 2)
             if ln == -1:
                 v = None
+#                assert data[0] == 0xff
+#                data = data[1:]
             else:
                 v, data = data[:ln], data[ln:]
                 v = _bytes_to_str(v)
