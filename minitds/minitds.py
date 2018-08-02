@@ -725,6 +725,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 ln, data = _parse_int(data, 4)
                 v, data = data[:ln], data[ln:]
                 v = _bytes_to_str(v)
+                data = data[4:]
         else:
             ln, data = _parse_int(data, 2)
             if ln == -1:
