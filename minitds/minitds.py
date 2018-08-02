@@ -713,6 +713,11 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             else:
                 if data[:6] == b'\x00'* 6:
                     data = data[6:]
+                    ln, data = _parse_int(data, 4)
+                    v, data = data[:ln], data[ln:]
+                    v = _bytes_to_str(v)
+                    if ln:
+                        data = data[4:]
                 else:
                     _, data = data[:ln], data[ln:]
                     ln, data = _parse_int(data, 2)
@@ -722,10 +727,10 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                     ln, data = _parse_int(data, 2)
                     _, data = data[:ln], data[ln:]
                     data = data[4:]
-                ln, data = _parse_int(data, 4)
-                v, data = data[:ln], data[ln:]
-                v = _bytes_to_str(v)
-                data = data[4:]
+                    ln, data = _parse_int(data, 4)
+                    v, data = data[:ln], data[ln:]
+                    v = _bytes_to_str(v)
+                    data = data[4:]
         else:
             ln, data = _parse_int(data, 2)
             if ln == -1:
