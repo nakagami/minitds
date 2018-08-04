@@ -712,8 +712,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 data = data[1:]
             else:
                 if data[:6] == b'\x00'* 6:
-                    data = data[6:]
-                    ln, data = _parse_int(data, 4)
+                    data = data[10:]
                     v, data = data[:ln], data[ln:]
                     v = _bytes_to_str(v)
                     if ln:
