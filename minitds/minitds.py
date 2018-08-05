@@ -881,7 +881,7 @@ def quote_value(value):
     elif isinstance(value, (int, float, decimal.Decimal)):
         return str(value)
     elif isinstance(value, str):
-        return "'%s'" % value.replace("\'", "\'\'")
+        return "N'%s'" % value.replace("\'", "\'\'")
     elif isinstance(value, (bytes, bytearray, memoryview)):
         return "0x%s" % binascii.hexlify(value).decode('ascii')
     elif isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
