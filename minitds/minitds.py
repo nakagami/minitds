@@ -923,6 +923,8 @@ class Cursor(object):
 
         self.description = []
         return_status, self.description, self._rows = self.connection._callproc(procname, args)
+        self.connection._last_description = self.description
+        self.connection._last_rows = self._rows
         if self.connection.autocommit:
             self.connection.commit()
         return return_status
@@ -954,6 +956,8 @@ class Cursor(object):
         if not self.connection.transaction_id:
             self.connection.begin()
         self.description, self._rows, self._rowcount = self.connection._execute(s)
+        self.connection._last_description = self.description
+        self.connection._last_rows = self._rows
         if self.connection.autocommit:
             self.connection.commit()
         self.last_sql = query
@@ -1046,6 +1050,8 @@ class Connection(object):
         self._packet_id = 0
         self.transaction_id = None
         self.is_dirty = False
+        self._last_description = []
+        self._last_rows = []
         self.sslobj = self.incoming = self.outgoing = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
