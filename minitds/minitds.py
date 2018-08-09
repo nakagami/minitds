@@ -1191,7 +1191,15 @@ class Connection(object):
                 msg_ln = _bytes_to_int(data[9:11])
                 message = _bytes_to_str(data[11:msg_ln*2+11])
                 DEBUG_OUTPUT("TDS_INFO_TOKEN:%s" % message)
-                data = data[ln:]
+                data = data[msg_ln*2+11:]
+                ln, data = _parse_int(data, 1)
+                server_name, data = data[:ln*2], data[ln*2:]
+                server_name = _bytes_to_str(server_name)
+                ln, data = _parse_int(data, 1)
+                proc_name, data = data[:ln*2], data[ln*2:]
+                proc_name = _bytes_to_str(proc_name)
+                lineno, data = _parse_int(data, 4)
+                break
             elif data[0] == TDS_TOKEN_COLMETADATA:
                 description, data = parse_description(data)
             elif data[0] == TDS_ROW_TOKEN:
