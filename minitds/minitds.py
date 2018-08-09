@@ -36,7 +36,7 @@ import struct
 import ssl
 from argparse import ArgumentParser
 
-VERSION = (0, 5, 0)
+VERSION = (0, 5, 1)
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
