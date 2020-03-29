@@ -33,7 +33,7 @@ import uuid
 class TestMiniTds(unittest.TestCase):
     host = os.environ.get('TEST_MINITDS_HOST', 'localhost')
     user = os.environ.get('TEST_MINITDS_USER', 'sa')
-    password = os.environ.get('TEST_MINITDS_PASSWORD', 'secret')
+    password = os.environ.get('TEST_MINITDS_PASSWORD', 'Secret123')
     database = os.environ.get('TEST_MINITDS_DATABASE', 'test')
     port = int(os.environ.get('TEST_MINITDS_PORT', '1433'))
 
