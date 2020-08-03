@@ -1079,17 +1079,18 @@ class Connection(object):
     def _read(self, ln):
         if not self.sock:
             raise OperationalError("Lost connection")
+        r = b''
         if self.sslobj:
-            while True:
+            while len(r) < ln:
                 try:
-                    r = self.sslobj.read(ln)
+                    b = self.sslobj.read(ln-len(r))
+                    if not b:
+                        raise OperationalError("Can't recv packets")
+                    r += b
                 except ssl.SSLWantReadError:
-                    b = self.sock.recv(32768)
+                    b = self.sock.recv(ln)
                     self.incoming.write(b)
-                    continue
-                break
         else:
-            r = b''
             while len(r) < ln:
                 b = self.sock.recv(ln-len(r))
                 if not b:
