@@ -1088,8 +1088,7 @@ class Connection(object):
                         raise OperationalError("Can't recv packets")
                     r += b
                 except ssl.SSLWantReadError:
-                    b = self.sock.recv(ln)
-                    self.incoming.write(b)
+                    self.incoming.write(self.sock.recv(1024))
         else:
             while len(r) < ln:
                 b = self.sock.recv(ln-len(r))
