@@ -627,7 +627,7 @@ def parse_description(data):
 
 
 def _parse_column(name, type_id, size, precision, scale, encoding, data):
-    # DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
+    DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
     elif type_id in (FLT8TYPE, ):
@@ -939,6 +939,7 @@ class Cursor(object):
         pass
 
     def execute(self, query, args=[]):
+        DEBUG_OUTPUT("execute:%s" % (query))
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
         self.description = []
@@ -964,6 +965,7 @@ class Cursor(object):
         self.last_params = args
 
     def executemany(self, query, seq_of_params):
+        DEBUG_OUTPUT("executemany:%s" % (query))
         rowcount = 0
         for params in seq_of_params:
             self.execute(query, params)
@@ -971,6 +973,7 @@ class Cursor(object):
         self._rowcount = rowcount
 
     def fetchone(self):
+        DEBUG_OUTPUT("fetchone()")
         if not self.connection or not self.connection.is_connect():
             raise OperationalError("Lost connection")
         if len(self._rows):
@@ -981,6 +984,7 @@ class Cursor(object):
         return row
 
     def fetchmany(self, size=1):
+        DEBUG_OUTPUT("fetchmany()")
         rs = []
         for i in range(size):
             r = self.fetchone()
@@ -990,6 +994,7 @@ class Cursor(object):
         return rs
 
     def fetchall(self):
+        DEBUG_OUTPUT("fetchall()")
         rows = self._rows
         self._rows = []
         return rows
@@ -1066,14 +1071,15 @@ class Connection(object):
 
         if body[32] == 1:
             self.sslobj, self.incoming, self.outgoing = self._do_ssl_handshake()
-
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
 
     def __enter__(self):
+        DEBUG_OUTPUT('Connection::__enter__()')
         return self
 
     def __exit__(self, exc, value, traceback):
+        DEBUG_OUTPUT('Connection::__exit__()')
         self.close()
 
     def _read(self, ln):
@@ -1109,6 +1115,7 @@ class Connection(object):
             n += self.sock.send(b[n:])
 
     def _read_response_packet(self):
+        DEBUG_OUTPUT('_read_response_packet()')
         b = self._read(8)
         tag = b[0]
         status = b[1]
