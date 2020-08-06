@@ -1040,6 +1040,8 @@ class Connection(object):
         return sslobj, incoming, outgoing
 
     def __init__(self, user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout):
+        if any([ord(c) > 127 for c in password]):
+            raise ValueError("Invalid password")
         self.user = user
         self.password = password
         self.database = database
