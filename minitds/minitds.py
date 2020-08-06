@@ -1040,8 +1040,6 @@ class Connection(object):
         return sslobj, incoming, outgoing
 
     def __init__(self, user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout):
-        if any([ord(c) > 127 for c in password]):
-            raise DatabaseError("Invalid password")
         self.user = user
         self.password = password
         self.database = database
@@ -1067,6 +1065,9 @@ class Connection(object):
             self.sock.settimeout(float(self.timeout))
 
         DEBUG_OUTPUT('{}:connect():{}:{}:{}'.format(id(self), self.host, self.database, self.autocommit))
+
+        if any([ord(c) > 127 for c in password]):
+            raise DatabaseError("Invalid password")
 
         self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
         _, _, _, body = self._read_response_packet()
