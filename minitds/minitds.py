@@ -1082,6 +1082,12 @@ class Connection(object):
 
     def __exit__(self, exc, value, traceback):
         DEBUG_OUTPUT('Connection::__exit__()')
+        if exc:
+            self.rollback()
+        else:
+            self.commit()
+
+    def __del__(self):
         self.close()
 
     def _read(self, ln):
