@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
-      mssql:
-        image: mcr.microsoft.com/mssql/server:2019-latest
+      microsoft-mssql-server:
+        image: 2019-latest
         ports:
           - 1433:1433
         env:
