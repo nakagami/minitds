@@ -18,8 +18,8 @@ jobs:
         ports:
           - 1433:1433
         env:
-          - ACCEPT_EULA=Y
-          - SA_PASSWORD=Secret123
+          ACCEPT_EULA: Y
+          SA_PASSWORD: Secret123
     steps:
     - uses: actions/checkout@v2
     - run: docker ps
