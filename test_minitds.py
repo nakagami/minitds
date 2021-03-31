@@ -31,7 +31,7 @@ import uuid
 
 
 class TestMiniTds(unittest.TestCase):
-    host = os.environ.get('TEST_MINITDS_HOST', 'localhost')
+    host = os.environ.get('TEST_MINITDS_HOST', '127.0.0.1')
     user = os.environ.get('TEST_MINITDS_USER', 'sa')
     password = os.environ.get('TEST_MINITDS_PASSWORD', 'Secret123')
     database = os.environ.get('TEST_MINITDS_DATABASE', 'test')
