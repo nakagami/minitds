@@ -10,15 +10,17 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      cassandra:
-        image: mcr.microsoft.com/mssql/server:2019-latest
-        ports:
-          - 1433:1433
-        options: -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=Secret123"
+  build:
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-    - run: docker ps
-    - run: python test_minitds.py
+    - name: Checkout the source code
+      uses: actions/checkout@v2
+
+    - name: setup-sqlpackage
+      uses: coreywebber/setup-sqlpackage@v1.0.0
+
+    - name: Restoring the database
+      run: sqlpackage /Action:Import /sf:${{github.workspace}}\partsnew.bacpac /tsn:${{secrets.DB_SERVER}} /tdn:test /tu:sa /tp:Secret123 /p:DatabaseMaximumSize=2 /p:DatabaseEdition=Basic
+
+    - name: Run tests
+      run: python test_minitds.py
