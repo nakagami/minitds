@@ -13,7 +13,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
-      microsoft-mssql-server:
+      mssqlserver:
         image: mcr.microsoft.com/mssql/server:2019-latest
         ports:
           - 1433:1433
@@ -23,5 +23,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: docker ps
-    - run: docker exec ${{ job.services.cassandra.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "Secret123" -Q "create database test;"
+    - run: docker exec ${{ job.mssqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "Secret123" -Q "create database test;"
     - run: python test_minitds.py
