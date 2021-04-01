@@ -12,7 +12,10 @@ Support platform
 Support database
 ------------------
 
-- MS SQLServer 2012, 2014, 2016, 2017
+We test with MS SQLServer 2019 on Ubuntu.
+But we think it works with the following versions.
+
+- MS SQLServer 2012, 2014, 2016, 2017, 2019
 - Microsoft Azure SQL Database
 
 
