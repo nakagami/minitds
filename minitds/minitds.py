@@ -1257,7 +1257,7 @@ class Connection(object):
             self.return_status = _bytes_to_int(data[-17:-13])
 
         if data[0] == TDS_ERROR_TOKEN:
-            raise parse_error(procname, data)
+            raise self.parse_error(procname, data)
         elif data[0] == TDS_TOKEN_COLMETADATA:
             description, data = parse_description(data)
         else:
