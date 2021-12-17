@@ -123,7 +123,6 @@ class TestMiniTds(unittest.TestCase):
         self.assertTrue(isinstance(r[4], int))
         self.assertTrue(isinstance(r[5], datetime.datetime))
 
-
     def test_autocommit(self):
         cur = self.connection.cursor()
         cur.execute("drop table if exists test_autocommit")

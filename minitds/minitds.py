@@ -140,9 +140,11 @@ class UTC(datetime.tzinfo):
     def dst(self, dt):
         return datetime.timedelta(0)
 
+
 def DEBUG_OUTPUT(s, end='\n'):
     # print(s, file=sys.stderr, end=end)
     pass
+
 
 # -----------------------------------------------------------------------------
 BUFSIZE = 4096
@@ -230,10 +232,12 @@ DATETIMEOFFSETNTYPE = 43  # 0x2b
 
 _bin_version = b'\x00' + bytes(list(VERSION))
 
+
 def _min_timezone_offset():
     "time zone offset (minutes)"
     now = time.time()
     return (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
+
 
 def _bytes_to_bint(b):
     return int.from_bytes(b, byteorder='big')
@@ -607,7 +611,7 @@ def _parse_description_type(data):
     elif type_id in (GUIDTYPE,):
         size, data = _parse_int(data, 1)
     else:
-        DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" %  type_id)
+        DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" % type_id)
     name, data = _parse_str(data, 1)
     return type_id, name, size, precision, scale, null_ok, data
 
@@ -711,7 +715,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 assert data[0] == 0xff
                 data = data[1:]
             else:
-                if data[:6] == b'\x00'* 6:
+                if data[:6] == b'\x00' * 6:
                     data = data[6:]
                     v = b''
                     ln2, data = _parse_int(data, 4)
@@ -760,7 +764,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 if ln > 0:
                     ln, data = _parse_int(data, 4)
                 v, data = data[:ln], data[ln:]
-                data = data[4:] # Unknow pad 4 bytes ???
+                data = data[4:]  # Unknow pad 4 bytes ???
         else:
             ln = _bytes_to_int(data[:2])
             data = data[2:]
@@ -852,6 +856,7 @@ def parse_row(description, encoding, data):
         row.append(v)
     return tuple(row), data
 
+
 def parse_nbcrow(description, encoding, data):
     t, data = _parse_byte(data)
     assert t == TDS_NBCROW_TOKEN
@@ -869,9 +874,6 @@ def parse_nbcrow(description, encoding, data):
         row.append(v)
     return tuple(row), data
 
-
-
-# -----------------------------------------------------------------------------
 
 def quote_value(value):
     if value is None:
@@ -909,7 +911,6 @@ class Cursor(object):
 
     def __exit__(self, exc, value, traceback):
         self.close()
-
 
     def callproc(self, procname, args=[]):
         DEBUG_OUTPUT('callproc:%s' % procname)
@@ -1203,7 +1204,7 @@ class Connection(object):
                 raise obj
             elif data[0] == TDS_INFO_TOKEN:
                 ln = _bytes_to_int(data[1:3])
-                info_num = _bytes_to_int(data[3:7])
+                # info_num = _bytes_to_int(data[3:7])
                 msg_ln = _bytes_to_int(data[9:11])
                 message = _bytes_to_str(data[11:msg_ln*2+11])
                 DEBUG_OUTPUT("TDS_INFO_TOKEN:%s" % message)
@@ -1242,7 +1243,6 @@ class Connection(object):
         DEBUG_OUTPUT(":={}".format(rowcount))
         return description, rows, rowcount
 
-
     def _callproc(self, procname, args):
         DEBUG_OUTPUT('_callback()')
         self._send_message(TDS_RPC, get_rpc_request_bytes(self, procname, args))
@@ -1272,7 +1272,6 @@ class Connection(object):
                 assert False
             rows.append(row)
         return self.return_status, description, rows
-
 
     def set_autocommit(self, autocommit):
         DEBUG_OUTPUT('{}:set_autocommit():{}'.format(id(self), autocommit))
@@ -1366,6 +1365,7 @@ def main(file):
     output_results(conn, args.query, args.with_header, args.field_separator, args.null, file)
 
     conn.commit()
+
 
 if __name__ == '__main__':
     main(sys.stdout)
