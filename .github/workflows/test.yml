@@ -26,6 +26,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: docker ps
-    - run: sleep 5
+    - run: sleep 7
     - run: docker exec ${{ job.services.mssqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Secret123 -Q "create database test;"
     - run: python test_minitds.py
