@@ -888,7 +888,7 @@ def quote_value(value):
         return "'%s'" % value
     elif isinstance(value, time.struct_time):
         return "'%04d-%02d-%02d %02d:%02d:%02d'" % (
-            v.tm_year, v.tm_mon, v.tm_mday, v.tm_hour, v.tm_min, v.tm_sec)
+            value.tm_year, value.tm_mon, value.tm_mday, value.tm_hour, value.tm_min, value.tm_sec)
     else:
         return "'%s'" % (str(value), )
 
