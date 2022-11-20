@@ -24,7 +24,7 @@ jobs:
           ACCEPT_EULA: Y
           SA_PASSWORD: Secret123
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - run: docker ps
     - run: sleep 7
     - run: docker exec ${{ job.services.mssqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Secret123 -Q "create database test;"
