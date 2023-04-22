@@ -54,3 +54,8 @@ Restrictions
 ----------------
 
 - Support connecting through SQL Server Authentication only.
+
+Protocol Specification
+------------------------
+
+https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tds/b46a581a-39de-4745-b076-ec4dbb7d13ec
