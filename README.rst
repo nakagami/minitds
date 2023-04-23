@@ -2,7 +2,7 @@
 minitds
 =============
 
-Yet another Python MS SQLServer database driver.
+Yet another and pure python MS SQLServer database driver.
 
 Support platform
 -----------------
