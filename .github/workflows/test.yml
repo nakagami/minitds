@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
     services:
       mssqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -24,7 +24,7 @@ jobs:
           ACCEPT_EULA: Y
           MSSQL_SA_PASSWORD: Secret123
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: docker ps
     - run: sleep 7
     - run: docker exec ${{ job.services.mssqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Secret123 -Q "create database test;"

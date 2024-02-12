@@ -7,7 +7,7 @@ Yet another and pure python MS SQLServer database driver.
 Support platform
 -----------------
 
-- Python 3.7+
+- Python 3.8+
 
 Support database
 ------------------
