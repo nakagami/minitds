@@ -764,7 +764,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 if ln > 0:
                     ln, data = _parse_int(data, 4)
                 v, data = data[:ln], data[ln:]
-                data = data[4:]  # Unknow pad 4 bytes ???
+                data = data[4:]  # PLP terminator (0x00000000 = no more chunks)
         else:
             ln = _bytes_to_int(data[:2])
             data = data[2:]
