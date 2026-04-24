@@ -29,3 +29,4 @@ jobs:
     - run: sleep 7
     - run: docker exec ${{ job.services.mssqlserver.id }} /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Secret123 -C -Q "create database test;"
     - run: python test_minitds.py
+    - run: python test_minitds_parsers.py

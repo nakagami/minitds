@@ -224,10 +224,14 @@ BIGBINARYTYPE = 173  # 0xAD
 SSVARIANTTYPE = 98  # 0x62
 UDTTYPE = 240  # 0xF0
 XMLTYPE = 241  # 0xF1
+JSONTYPE = 244  # 0xF4
+VECTORTYPE = 245  # 0xF5
 DATENTYPE = 40  # 0x28
 TIMENTYPE = 41  # 0x29
 DATETIME2NTYPE = 42  # 0x2a
 DATETIMEOFFSETNTYPE = 43  # 0x2b
+
+VECTOR_ELEM_FLOAT32 = 0x00  # 4-byte IEEE 754 single-precision float
 
 
 _bin_version = b'\x00' + bytes(list(VERSION))
@@ -560,6 +564,22 @@ def _parse_uuid(data, ln):
     return v, data
 
 
+def _parse_plp(data):
+    "Parse Partially Length-Prefixed (PLP) value. Returns (value_bytes_or_None, remaining_data)."
+    PLP_NULL = 0xFFFFFFFFFFFFFFFF
+    total_len, data = _parse_uint(data, 8)
+    if total_len == PLP_NULL:
+        return None, data
+    v = b''
+    while True:
+        chunk_len, data = _parse_uint(data, 4)
+        if chunk_len == 0:
+            break
+        v += data[:chunk_len]
+        data = data[chunk_len:]
+    return v, data
+
+
 def _parse_description_type(data):
     user_type, data = _parse_uint(data, 4)
     flags, data = _parse_uint(data, 2)
@@ -573,6 +593,7 @@ def _parse_description_type(data):
         INT2TYPE: 2,
         INT4TYPE: 4,
         INT8TYPE: 8,
+        FLT4TYPE: 4,
         FLT8TYPE: 8,
         DATETIM4TYPE: 4,
         DATETIMETYPE: 8,
@@ -610,6 +631,38 @@ def _parse_description_type(data):
         size, data = _parse_int(data, 2)
     elif type_id in (GUIDTYPE,):
         size, data = _parse_int(data, 1)
+    elif type_id in (NTEXTTYPE,):
+        _, data = _parse_int(data, 4)      # MaxLen
+        _, data = _parse_collation(data)   # 5-byte collation
+        num_parts, data = _parse_byte(data)
+        for _ in range(num_parts):
+            _, data = _parse_str(data, 2)  # table name parts (discard)
+    elif type_id in (XMLTYPE,):
+        schema_present, data = _parse_byte(data)
+        if schema_present:
+            # DBName: B_VARCHAR (1-byte len + UTF-16LE chars)
+            ln, data = _parse_byte(data)
+            data = data[ln * 2:]
+            # OwningSchema: B_VARCHAR
+            ln, data = _parse_byte(data)
+            data = data[ln * 2:]
+            # XmlSchemaCollection: US_VARCHAR (2-byte len + UTF-16LE chars)
+            ln, data = _parse_int(data, 2)
+            data = data[ln * 2:]
+    elif type_id in (UDTTYPE,):
+        size, data = _parse_int(data, 2)   # MaxByteSize
+        # DBName, SchemaName, TypeName: B_VARCHAR (1-byte len + chars)
+        for _ in range(3):
+            ln, data = _parse_byte(data)
+            data = data[ln * 2:]
+        # AssemblyQualifiedName: US_VARCHAR (2-byte len + chars)
+        ln, data = _parse_int(data, 2)
+        data = data[ln * 2:]
+    elif type_id in (JSONTYPE,):
+        pass   # no extra metadata
+    elif type_id in (VECTORTYPE,):
+        size, data = _parse_int(data, 2)   # MaxLen (total bytes)
+        scale, data = _parse_byte(data)    # dimension type (0x00 = float32)
     else:
         DEBUG_OUTPUT("_parse_description_type() Unknown type_id:%d" % type_id)
     name, data = _parse_str(data, 1)
@@ -634,6 +687,9 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
     DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
+    elif type_id in (FLT4TYPE, ):
+        v = struct.unpack('<f', data[:4])[0]
+        data = data[4:]
     elif type_id in (FLT8TYPE, ):
         v, data = struct.unpack("d", data[:size])[0], data[size:]
     elif type_id in (BITNTYPE, ):
@@ -676,6 +732,16 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v, data = data[:ln], data[ln:]
             if type_id == TEXTTYPE:
                 v = _bytes_to_str(v)
+    elif type_id in (NTEXTTYPE, ):
+        ln, data = _parse_byte(data)   # text pointer length (0 = NULL)
+        if ln == 0:
+            v = None
+        else:
+            data = data[ln:]           # skip text pointer
+            data = data[8:]            # skip timestamp (8 bytes)
+            ln, data = _parse_int(data, 4)
+            v, data = data[:ln], data[ln:]
+            v = _bytes_to_str(v)
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         ln, data = _parse_byte(data)
         positive, data = _parse_byte(data)
@@ -757,14 +823,8 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
             v = v.decode(encoding)
     elif type_id in (BIGVARCHRTYPE, BIGVARBINTYPE):
         if size == -1:
-            ln, data = _parse_int(data, 8)
-            if ln < 0:
-                v = None
-            else:
-                if ln > 0:
-                    ln, data = _parse_int(data, 4)
-                v, data = data[:ln], data[ln:]
-                data = data[4:]  # PLP terminator (0x00000000 = no more chunks)
+            raw, data = _parse_plp(data)
+            v = raw
         else:
             ln = _bytes_to_int(data[:2])
             data = data[2:]
@@ -774,6 +834,31 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
                 v, data = data[:ln], data[ln:]
         if type_id == BIGVARCHRTYPE and v is not None:
             v = v.decode(encoding)
+    elif type_id in (BIGBINARYTYPE, ):
+        ln = _bytes_to_int(data[:2])
+        data = data[2:]
+        if ln < 0:
+            v = None
+        else:
+            v, data = data[:ln], data[ln:]
+    elif type_id in (XMLTYPE, ):
+        raw, data = _parse_plp(data)
+        v = raw.decode('utf-16-le') if raw is not None else None
+    elif type_id in (UDTTYPE, ):
+        raw, data = _parse_plp(data)
+        v = raw   # return raw bytes for UDT
+    elif type_id in (JSONTYPE, ):
+        raw, data = _parse_plp(data)
+        v = raw.decode('utf-8') if raw is not None else None
+    elif type_id in (VECTORTYPE, ):
+        ln = _bytes_to_int(data[:2])
+        data = data[2:]
+        if ln < 0:
+            v = None
+        else:
+            raw, data = data[:ln], data[ln:]
+            n = ln // 4
+            v = list(struct.unpack('<' + 'f' * n, raw))
     elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
