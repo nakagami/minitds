@@ -21,4 +21,5 @@ setup(
     long_description=open('README.rst').read(),
     license="MIT",
     packages=['minitds'],
+    package_data={'minitds': ['py.typed']},
 )

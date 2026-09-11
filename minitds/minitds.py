@@ -36,6 +36,18 @@ import struct
 import ssl
 import json
 from argparse import ArgumentParser
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    TextIO,
+)
 
 VERSION = (0, 5, 4)
 apilevel = '2.0'
@@ -50,20 +62,20 @@ TimeDelta = datetime.timedelta
 Timestamp = datetime.datetime
 
 
-def Binary(b):
+def Binary(b: Any) -> Union[bytes, str]:
     return b if hasattr(b, 'decode') else str(b)
 
 
 class DBAPITypeObject:
-    def __init__(self, *values):
+    def __init__(self, *values: Any) -> None:
         self.values = values
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, DBAPITypeObject):
             return self.values == other.values
         return other in self.values
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
 
@@ -238,53 +250,53 @@ VECTOR_ELEM_FLOAT32 = 0x00  # 4-byte IEEE 754 single-precision float
 _bin_version = b'\x00' + bytes(list(VERSION))
 
 
-def _min_timezone_offset():
+def _min_timezone_offset() -> int:
     "time zone offset (minutes)"
     offset = datetime.datetime.now().astimezone().utcoffset()
     return int(offset.total_seconds() // 60) if offset else 0
 
 
-def _bytes_to_bint(b):
+def _bytes_to_bint(b: bytes) -> int:
     return int.from_bytes(b, byteorder='big')
 
 
-def _bytes_to_int(b):
+def _bytes_to_int(b: bytes) -> int:
     return int.from_bytes(b, byteorder='little', signed=True)
 
 
-def _bytes_to_uint(b):
+def _bytes_to_uint(b: bytes) -> int:
     return int.from_bytes(b, byteorder='little', signed=False)
 
 
-def _bint_to_2bytes(v):
+def _bint_to_2bytes(v: int) -> bytes:
     return v.to_bytes(2, byteorder='big')
 
 
-def _bint_to_4bytes(v):
+def _bint_to_4bytes(v: int) -> bytes:
     return v.to_bytes(4, byteorder='big')
 
 
-def _int_to_2bytes(v):
+def _int_to_2bytes(v: int) -> bytes:
     return v.to_bytes(2, byteorder='little')
 
 
-def _int_to_4bytes(v):
+def _int_to_4bytes(v: int) -> bytes:
     return v.to_bytes(4, byteorder='little')
 
 
-def _int_to_8bytes(v):
+def _int_to_8bytes(v: int) -> bytes:
     return v.to_bytes(8, byteorder='little')
 
 
-def _str_to_bytes(s):
+def _str_to_bytes(s: str) -> bytes:
     return s.encode('utf_16_le')
 
 
-def _bytes_to_str(b):
+def _bytes_to_str(b: bytes) -> str:
     return b.decode('utf_16_le')
 
 
-def _convert_time(b, precision):
+def _convert_time(b: bytes, precision: int) -> datetime.time:
     v = _bytes_to_uint(b)
     v *= 10 ** (7 - precision)
     nanoseconds = v * 100
@@ -297,11 +309,11 @@ def _convert_time(b, precision):
     return datetime.time(hours, minutes, seconds, nanoseconds // 1000)
 
 
-def _convert_date(b):
+def _convert_date(b: bytes) -> datetime.date:
     return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
-def get_prelogin_bytes(use_ssl, instance_name):
+def get_prelogin_bytes(use_ssl: Optional[bool], instance_name: str) -> bytes:
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
     # version
@@ -339,7 +351,7 @@ def get_prelogin_bytes(use_ssl, instance_name):
     return buf
 
 
-def get_login_bytes(host, user, password, database, lcid):
+def get_login_bytes(host: str, user: str, password: str, database: str, lcid: int) -> bytes:
     pos = 94
     client_name = socket.gethostname()[:128]
     app_name = "minitds"
@@ -433,7 +445,7 @@ def get_login_bytes(host, user, password, database, lcid):
     return buf
 
 
-def get_trans_request_bytes(transaction_id, req, isolation_level):
+def get_trans_request_bytes(transaction_id: Optional[bytes], req: int, isolation_level: int) -> bytes:
     if transaction_id is None:
         transaction_id = b'\x00' * 8
     buf = _int_to_4bytes(22)
@@ -447,7 +459,7 @@ def get_trans_request_bytes(transaction_id, req, isolation_level):
     return buf
 
 
-def get_sql_batch_bytes(transaction_id, query):
+def get_sql_batch_bytes(transaction_id: Optional[bytes], query: str) -> bytes:
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
@@ -462,7 +474,7 @@ def get_sql_batch_bytes(transaction_id, query):
     return buf
 
 
-def get_rpc_request_bytes(connection, procname, params=None):
+def get_rpc_request_bytes(connection: 'Connection', procname: str, params: Optional[Sequence[Any]] = None) -> bytes:
     if params is None:
         params = []
     buf = _int_to_4bytes(22)
@@ -532,28 +544,28 @@ def get_rpc_request_bytes(connection, procname, params=None):
     return buf
 
 
-def _parse_byte(data):
+def _parse_byte(data: bytes) -> Tuple[int, bytes]:
     return data[0], data[1:]
 
 
-def _parse_int(data, ln):
+def _parse_int(data: bytes, ln: int) -> Tuple[int, bytes]:
     return _bytes_to_int(data[:ln]), data[ln:]
 
 
-def _parse_uint(data, ln):
+def _parse_uint(data: bytes, ln: int) -> Tuple[int, bytes]:
     return _bytes_to_uint(data[:ln]), data[ln:]
 
 
-def _parse_collation(data):
+def _parse_collation(data: bytes) -> Tuple[bytes, bytes]:
     return data[:5], data[5:]
 
 
-def _parse_str(data, ln):
+def _parse_str(data: bytes, ln: int) -> Tuple[str, bytes]:
     slen, data = _parse_uint(data, ln)
     return _bytes_to_str(data[:slen*2]), data[slen*2:]
 
 
-def _parse_variant(data, ln, encoding='utf-8'):
+def _parse_variant(data: bytes, ln: int, encoding: str = 'utf-8') -> Tuple[Any, bytes]:
     data2, data = data[:ln], data[ln:]
     type_id, data2 = _parse_byte(data2)
     prop_bytes, data2 = _parse_byte(data2)
@@ -632,13 +644,13 @@ def _parse_variant(data, ln, encoding='utf-8'):
     return v, data
 
 
-def _parse_uuid(data, ln):
+def _parse_uuid(data: bytes, ln: int) -> Tuple[uuid.UUID, bytes]:
     v = uuid.UUID(bytes_le=data[:ln])
     data = data[ln:]
     return v, data
 
 
-def _parse_plp(data):
+def _parse_plp(data: bytes) -> Tuple[Optional[bytes], bytes]:
     "Parse Partially Length-Prefixed (PLP) value. Returns (value_bytes_or_None, remaining_data)."
     PLP_NULL = 0xFFFFFFFFFFFFFFFF
     total_len, data = _parse_uint(data, 8)
@@ -654,7 +666,7 @@ def _parse_plp(data):
     return v, data
 
 
-def _parse_description_type(data):
+def _parse_description_type(data: bytes) -> Tuple[int, str, int, int, int, bool, bytes]:
     user_type, data = _parse_uint(data, 4)
     flags, data = _parse_uint(data, 2)
     null_ok = (flags & 1) == 1
@@ -743,13 +755,13 @@ def _parse_description_type(data):
     return type_id, name, size, precision, scale, null_ok, data
 
 
-def parse_description(data):
+def parse_description(data: bytes) -> Union[Tuple[List[Tuple[str, int, int, int, int, int, bool]], bytes], List]:
     assert data[0] == TDS_TOKEN_COLMETADATA
     num_cols = _bytes_to_int(data[1:3])
     if num_cols == -1:
         return []
 
-    description = []
+    description: List[Tuple[str, int, int, int, int, int, bool]] = []
     data = data[3:]
     for i in range(num_cols):
         type_id, name, size, precision, scale, null_ok, data = _parse_description_type(data)
@@ -757,7 +769,7 @@ def parse_description(data):
     return description, data
 
 
-def _parse_column(name, type_id, size, precision, scale, encoding, data):
+def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int, encoding: str, data: bytes) -> Tuple[Any, bytes]:
     DEBUG_OUTPUT("%s:%d:%d:%d:%d" % (name, type_id, size, precision, scale))
     if type_id in (INT1TYPE, BITTYPE, INT2TYPE, INT4TYPE, INT8TYPE):
         v, data = _parse_int(data, size)
@@ -1005,7 +1017,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
     return v, data
 
 
-def parse_row(description, encoding, data):
+def parse_row(description: List[Tuple], encoding: str, data: bytes) -> Tuple[Tuple[Any, ...], bytes]:
     t, data = _parse_byte(data)
     assert t == TDS_ROW_TOKEN
 
@@ -1016,7 +1028,7 @@ def parse_row(description, encoding, data):
     return tuple(row), data
 
 
-def parse_nbcrow(description, encoding, data):
+def parse_nbcrow(description: List[Tuple], encoding: str, data: bytes) -> Tuple[Tuple[Any, ...], bytes]:
     t, data = _parse_byte(data)
     assert t == TDS_NBCROW_TOKEN
 
@@ -1034,7 +1046,7 @@ def parse_nbcrow(description, encoding, data):
     return tuple(row), data
 
 
-def quote_value(value):
+def quote_value(value: Any) -> str:
     if value is None:
         return "NULL"
     elif isinstance(value, bool):
@@ -1059,23 +1071,24 @@ def quote_value(value):
 
 
 class Cursor(object):
-    def __init__(self, connection):
-        self.connection = connection
-        self.description = []
-        self._rows = []
-        self._rowcount = 0
-        self.arraysize = 1
-        self.query = None
-        self.last_sql = self.last_params = None
+    def __init__(self, connection: 'Connection') -> None:
+        self.connection: Optional['Connection'] = connection
+        self.description: List[Tuple] = []
+        self._rows: List[Tuple[Any, ...]] = []
+        self._rowcount: int = 0
+        self.arraysize: int = 1
+        self.query: Optional[str] = None
+        self.last_sql: Optional[str] = None
+        self.last_params: Optional[Union[Sequence[Any], Dict[str, Any]]] = None
         self.return_stats = None
 
-    def __enter__(self):
+    def __enter__(self) -> 'Cursor':
         return self
 
-    def __exit__(self, exc, value, traceback):
+    def __exit__(self, exc: Any, value: Any, traceback: Any) -> None:
         self.close()
 
-    def callproc(self, procname, args=None):
+    def callproc(self, procname: str, args: Optional[Sequence[Any]] = None) -> Any:
         if args is None:
             args = []
         DEBUG_OUTPUT('callproc:%s' % procname)
@@ -1095,16 +1108,16 @@ class Cursor(object):
             self.connection.commit()
         return return_status
 
-    def nextset(self, procname=None, args=None):
+    def nextset(self, procname: Optional[str] = None, args: Optional[Sequence[Any]] = None) -> None:
         raise NotSupportedError()
 
-    def setinputsizes(self, sizes):
+    def setinputsizes(self, sizes: Any) -> None:
         pass
 
-    def setoutputsize(self, size, column=None):
+    def setoutputsize(self, size: Any, column: Optional[Any] = None) -> None:
         pass
 
-    def execute(self, query, args=None):
+    def execute(self, query: str, args: Optional[Union[Sequence[Any], Dict[str, Any]]] = None) -> None:
         DEBUG_OUTPUT("execute:%s" % (query))
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
@@ -1130,7 +1143,7 @@ class Cursor(object):
         self.last_sql = query
         self.last_params = args
 
-    def executemany(self, query, seq_of_params):
+    def executemany(self, query: str, seq_of_params: Sequence[Union[Sequence[Any], Dict[str, Any]]]) -> None:
         DEBUG_OUTPUT("executemany:%s" % (query))
         rowcount = 0
         for params in seq_of_params:
@@ -1138,7 +1151,7 @@ class Cursor(object):
             rowcount += self._rowcount
         self._rowcount = rowcount
 
-    def fetchone(self):
+    def fetchone(self) -> Optional[Tuple[Any, ...]]:
         DEBUG_OUTPUT("fetchone()")
         if not self.connection or not self.connection.is_connect():
             raise OperationalError("Lost connection")
@@ -1149,7 +1162,7 @@ class Cursor(object):
             row = None
         return row
 
-    def fetchmany(self, size=None):
+    def fetchmany(self, size: Optional[int] = None) -> List[Tuple[Any, ...]]:
         DEBUG_OUTPUT("fetchmany()")
         if size is None:
             size = self.arraysize
@@ -1161,29 +1174,29 @@ class Cursor(object):
             rs.append(r)
         return rs
 
-    def fetchall(self):
+    def fetchall(self) -> List[Tuple[Any, ...]]:
         DEBUG_OUTPUT("fetchall()")
         rows = self._rows
         self._rows = []
         return rows
 
-    def close(self):
+    def close(self) -> None:
         pass
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         return self._rowcount
 
-    def __iter__(self):
+    def __iter__(self) -> 'Cursor':
         return self
 
-    def __next__(self):
+    def __next__(self) -> Tuple[Any, ...]:
         r = self.fetchone()
         if not r:
             raise StopIteration()
         return r
 
-    def next(self):
+    def next(self) -> Tuple[Any, ...]:
         return self.__next__()
 
 
@@ -1207,7 +1220,21 @@ class Connection(object):
 
         return sslobj, incoming, outgoing
 
-    def __init__(self, user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout):
+    def __init__(
+        self,
+        user: str,
+        password: str,
+        database: str,
+        host: str,
+        instance_name: str,
+        isolation_level: int,
+        autocommit: bool,
+        port: int,
+        lcid: int,
+        encoding: str,
+        use_ssl: Optional[bool],
+        timeout: Optional[float]
+    ) -> None:
         self.user = user
         self.password = password
         self.database = database
@@ -1220,14 +1247,17 @@ class Connection(object):
         self.use_ssl = use_ssl
         self.timeout = timeout
         self.autocommit = autocommit
-        self._packet_id = 0
-        self.transaction_id = None
-        self.is_dirty = False
-        self._last_description = []
-        self._last_rows = []
-        self.sslobj = self.incoming = self.outgoing = None
+        self._packet_id: int = 0
+        self.transaction_id: Optional[bytes] = None
+        self.is_dirty: bool = False
+        self._last_description: List[Tuple] = []
+        self._last_rows: List[Tuple[Any, ...]] = []
+        self.sslobj: Optional[ssl.SSLObject] = None
+        self.incoming: Optional[ssl.MemoryBIO] = None
+        self.outgoing: Optional[ssl.MemoryBIO] = None
+        self.return_status: Optional[int] = None
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock: Optional[socket.socket] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((self.host, self.port))
         if self.timeout is not None:
             self.sock.settimeout(float(self.timeout))
@@ -1245,21 +1275,21 @@ class Connection(object):
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         self._read_response_packet()
 
-    def __enter__(self):
+    def __enter__(self) -> 'Connection':
         DEBUG_OUTPUT('Connection::__enter__()')
         return self
 
-    def __exit__(self, exc, value, traceback):
+    def __exit__(self, exc: Any, value: Any, traceback: Any) -> None:
         DEBUG_OUTPUT('Connection::__exit__()')
         if exc:
             self.rollback()
         else:
             self.commit()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def _read(self, ln):
+    def _read(self, ln: int) -> bytes:
         if not self.sock:
             raise OperationalError("Lost connection")
         r = b''
@@ -1271,7 +1301,8 @@ class Connection(object):
                         raise OperationalError("Can't recv packets")
                     r += b
                 except ssl.SSLWantReadError:
-                    self.incoming.write(self.sock.recv(1024))
+                    if self.sock:
+                        self.incoming.write(self.sock.recv(1024))
         else:
             while len(r) < ln:
                 b = self.sock.recv(ln-len(r))
@@ -1280,7 +1311,7 @@ class Connection(object):
                 r += b
         return r
 
-    def _write(self, b):
+    def _write(self, b: bytes) -> None:
         if not self.sock:
             raise OperationalError("Lost connection")
         if self.sslobj:
@@ -1291,7 +1322,7 @@ class Connection(object):
         while (n < len(b)):
             n += self.sock.send(b[n:])
 
-    def _read_response_packet(self):
+    def _read_response_packet(self) -> Tuple[int, int, int, bytes]:
         DEBUG_OUTPUT('_read_response_packet()')
         b = self._read(8)
         tag = b[0]
@@ -1301,7 +1332,7 @@ class Connection(object):
 
         return tag, status, spid, self._read(ln)
 
-    def _send_message(self, message_type, buf):
+    def _send_message(self, message_type: int, buf: bytes) -> None:
         data, buf = buf[:BUFSIZE-8], buf[BUFSIZE-8:]
         while buf:
             self._write(
@@ -1323,7 +1354,7 @@ class Connection(object):
         )
         self._packet_id = (self._packet_id + 1) % 256
 
-    def parse_transaction_id(self, data):
+    def parse_transaction_id(self, data: bytes) -> Tuple[bytes, bytes]:
         "return transaction_id"
         if data[0] == TDS_ERROR_TOKEN:
             raise self.parse_error('begin()', data)
@@ -1336,7 +1367,7 @@ class Connection(object):
         assert ln == 8                  # transaction id length
         return data[:ln], data[ln:]
 
-    def parse_error(self, query, data):
+    def parse_error(self, query: str, data: bytes) -> DatabaseError:
         assert data[0] == TDS_ERROR_TOKEN
         err_num = _bytes_to_int(data[3:7])
         msg_ln = _bytes_to_int(data[9:11])
@@ -1347,13 +1378,13 @@ class Connection(object):
             return IntegrityError("{}:{}:{}".format(err_num, message, query), err_num)
         return OperationalError("{}:{}:{}".format(err_num, message, query), err_num)
 
-    def is_connect(self):
+    def is_connect(self) -> bool:
         return bool(self.sock)
 
-    def cursor(self, factory=Cursor):
+    def cursor(self, factory: Type[Cursor] = Cursor) -> Cursor:
         return factory(self)
 
-    def _execute(self, query):
+    def _execute(self, query: str) -> Tuple[List[Tuple], List[Tuple[Any, ...]], int]:
         self.is_dirty = True
         DEBUG_OUTPUT('{}:_execute():{}'.format(id(self), query), end='')
         self._send_message(TDS_SQL_BATCH, get_sql_batch_bytes(self.transaction_id, query))
@@ -1410,7 +1441,7 @@ class Connection(object):
         DEBUG_OUTPUT(":={}".format(rowcount))
         return description, rows, rowcount
 
-    def _callproc(self, procname, args):
+    def _callproc(self, procname: str, args: Sequence[Any]) -> Tuple[Optional[int], List[Tuple], List[Tuple[Any, ...]]]:
         DEBUG_OUTPUT('_callback()')
         self._send_message(TDS_RPC, get_rpc_request_bytes(self, procname, args))
 
@@ -1441,11 +1472,11 @@ class Connection(object):
             rows.append(row)
         return self.return_status, description, rows
 
-    def set_autocommit(self, autocommit):
+    def set_autocommit(self, autocommit: bool) -> None:
         DEBUG_OUTPUT('{}:set_autocommit():{}'.format(id(self), autocommit))
         self.autocommit = autocommit
 
-    def begin(self):
+    def begin(self) -> None:
         DEBUG_OUTPUT('{}:begin()'.format(id(self)), end=' ')
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(None, TM_BEGIN_XACT, self.isolation_level))
         _, _, _, data = self._read_response_packet()
@@ -1453,44 +1484,64 @@ class Connection(object):
         self.is_dirty = False
         DEBUG_OUTPUT('transaction_id={}'.format(self.transaction_id))
 
-    def _commit(self):
+    def _commit(self) -> None:
         DEBUG_OUTPUT('{}:_commit() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_COMMIT_XACT, 0))
         self._read_response_packet()
         self.transaction_id = None
         self.is_dirty = False
 
-    def commit(self):
+    def commit(self) -> None:
         DEBUG_OUTPUT('commit()')
         if self.is_dirty:
             self._commit()
 
-    def _rollback(self):
+    def _rollback(self) -> None:
         DEBUG_OUTPUT('{}:_rollback() transaction_id={}'.format(id(self), self.transaction_id))
         self._send_message(TDS_TRANSACTION_MANAGER_REQUEST, get_trans_request_bytes(self.transaction_id, TM_ROLLBACK_XACT, self.isolation_level))
         self._read_response_packet()
         self.transaction_id = None
         self.is_dirty = False
 
-    def rollback(self):
+    def rollback(self) -> None:
         DEBUG_OUTPUT('rollback()')
         if self.is_dirty:
             self._rollback()
 
-    def close(self):
+    def close(self) -> None:
         if self.sock:
             DEBUG_OUTPUT('close():{}:{}:{}'.format(self.host, self.database, self.autocommit))
             self.sock.close()
             self.sock = None
 
 
-def connect(host, database, user, password, instance_name='MSSQLServer', isolation_level=ISOLATION_LEVEL_READ_COMMITTED, autocommit=False, port=1433, lcid=1033, encoding='utf8', use_ssl=None, timeout=None):
+def connect(
+    host: str,
+    database: str,
+    user: str,
+    password: str,
+    instance_name: str = 'MSSQLServer',
+    isolation_level: int = ISOLATION_LEVEL_READ_COMMITTED,
+    autocommit: bool = False,
+    port: int = 1433,
+    lcid: int = 1033,
+    encoding: str = 'utf8',
+    use_ssl: Optional[bool] = None,
+    timeout: Optional[float] = None
+) -> Connection:
     DEBUG_OUTPUT('connect():{}:{}:{}'.format(host, database, autocommit))
     return Connection(user, password, database, host, instance_name, isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout)
 
 
-def output_results(conn, query, with_header=True, separator="\t", null='null', file=sys.stdout):
-    def _ustr(c):
+def output_results(
+    conn: Connection,
+    query: str,
+    with_header: bool = True,
+    separator: str = "\t",
+    null: str = 'null',
+    file: TextIO = sys.stdout
+) -> None:
+    def _ustr(c: Any) -> str:
         if c is None:
             return null
         elif c is True:
@@ -1509,7 +1560,7 @@ def output_results(conn, query, with_header=True, separator="\t", null='null', f
         print(separator.join([_ustr(c) for c in r]), file=file)
 
 
-def main(file):
+def main(file: TextIO) -> None:
     parser = ArgumentParser(description='Execute query and print results.')
     parser.add_argument('-H', '--host', default='localhost', metavar='host', type=str, help='host name')
     parser.add_argument('-U', '--user', required=True, metavar='user', type=str, help='login user')
