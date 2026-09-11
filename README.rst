@@ -7,12 +7,12 @@ Yet another and pure python MS SQLServer database driver.
 Support platform
 -----------------
 
-- Python 3.8+
+- Python 3.11 or later
 
 Support database
 ------------------
 
-We are testing it on MS SQLServer 2022 on Ubuntu.
+We are testing it on MS SQLServer 2025 on Ubuntu.
 But we think it works on older versions.
 
 Installation
