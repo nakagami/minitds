@@ -533,10 +533,11 @@ def _parse_str(data, ln):
     return _bytes_to_str(data[:slen*2]), data[slen*2:]
 
 
-def _parse_variant(data, ln):
+def _parse_variant(data, ln, encoding='utf-8'):
     data2, data = data[:ln], data[ln:]
     type_id, data2 = _parse_byte(data2)
     prop_bytes, data2 = _parse_byte(data2)
+    prop, data2 = data2[:prop_bytes], data2[prop_bytes:]
 
     if type_id in (INT1TYPE, ):
         v, data2 = _parse_int(data2, 1)
@@ -544,15 +545,68 @@ def _parse_variant(data, ln):
         v, data2 = _parse_int(data2, 2)
     elif type_id in (INT4TYPE, ):
         v, data2 = _parse_int(data2, 4)
-    elif type_id in (NVARCHARTYPE, ):
-        _, data2 = _parse_collation(data2)
-        v, data2 = _parse_str(data2, 2)
+    elif type_id in (INT8TYPE, ):
+        v, data2 = _parse_int(data2, 8)
+    elif type_id in (BITTYPE, ):
+        v, data2 = _parse_int(data2, 1)
+        v = bool(v)
+    elif type_id in (FLT4TYPE, ):
+        v = struct.unpack('<f', data2[:4])[0]
+    elif type_id in (FLT8TYPE, ):
+        v = struct.unpack('<d', data2[:8])[0]
+    elif type_id in (MONEY4TYPE, ):
+        m, data2 = _parse_int(data2, 4)
+        v = decimal.Decimal(m) / 10000
+    elif type_id in (MONEYTYPE, ):
+        hi, data2 = _parse_int(data2, 4)
+        lo, data2 = _parse_uint(data2, 4)
+        v = decimal.Decimal(hi * (2**32) + lo) / 10000
+    elif type_id in (GUIDTYPE, ):
+        v, _ = _parse_uuid(data2, 16)
+    elif type_id in (DATETIM4TYPE, ):
+        d, data2 = _parse_uint(data2, 2)
+        m, data2 = _parse_uint(data2, 2)
+        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, minutes=m)
     elif type_id in (DATETIMETYPE, ):
         d, data2 = _parse_int(data2, 4)
         t, data2 = _parse_int(data2, 4)
         ms = t % 300 * 10 // 3
         secs = t // 300
         v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+    elif type_id in (DATENTYPE, ):
+        v = _convert_date(data2[:3])
+    elif type_id in (TIMENTYPE, ):
+        scale = prop[0] if prop else 7
+        v = _convert_time(data2, scale)
+    elif type_id in (DATETIME2NTYPE, ):
+        scale = prop[0] if prop else 7
+        t_len = len(data2) - 3
+        t = _convert_time(data2[:t_len], scale)
+        d = _convert_date(data2[t_len:t_len+3])
+        v = datetime.datetime.combine(d, t)
+    elif type_id in (DATETIMEOFFSETNTYPE, ):
+        scale = prop[0] if prop else 7
+        t_len = len(data2) - 5
+        t = _convert_time(data2[:t_len], scale)
+        d = _convert_date(data2[t_len:t_len+3])
+        tz = _bytes_to_int(data2[t_len+3:t_len+5])
+        v = (datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz)).replace(tzinfo=UTC())
+    elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
+        scale = prop[1] if len(prop) > 1 else 0
+        positive, data2 = _parse_byte(data2)
+        val, _ = _parse_int(data2, len(data2))
+        v = decimal.Decimal(val)
+        if not positive:
+            v = -v
+        v /= (10 ** scale)
+    elif type_id in (NVARCHARTYPE, NCHARTYPE):
+        v, _ = _parse_str(data2, 2)
+    elif type_id in (BIGVARCHRTYPE, BIGCHARTYPE):
+        slen, data2 = _parse_uint(data2, 2)
+        v = data2[:slen].decode(encoding)
+    elif type_id in (BIGVARBINTYPE, BIGBINARYTYPE):
+        blen, data2 = _parse_uint(data2, 2)
+        v = data2[:blen]
     else:
         raise Error("_parse_variant() Unknown type %d" % (type_id,))
     return v, data
@@ -918,7 +972,7 @@ def _parse_column(name, type_id, size, precision, scale, encoding, data):
         if ln == 0:
             v = None
         else:
-            v, data = _parse_variant(data, ln)
+            v, data = _parse_variant(data, ln, encoding)
     elif type_id in (GUIDTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:

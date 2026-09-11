@@ -10,6 +10,7 @@ from minitds.minitds import (
     _parse_plp,
     _parse_column,
     _parse_description_type,
+    _parse_variant,
     _min_timezone_offset,
     BIGBINARYTYPE,
     FLT4TYPE,
@@ -19,6 +20,19 @@ from minitds.minitds import (
     VECTORTYPE,
     VECTOR_ELEM_FLOAT32,
     XMLTYPE,
+    INT1TYPE,
+    INT2TYPE,
+    INT4TYPE,
+    INT8TYPE,
+    BITTYPE,
+    FLT8TYPE,
+    GUIDTYPE,
+    DATENTYPE,
+    TIMENTYPE,
+    DATETIME2NTYPE,
+    DECIMALNTYPE,
+    BIGVARCHRTYPE,
+    BIGVARBINTYPE,
     STRING,
     NUMBER,
     DATETIME,
@@ -398,6 +412,69 @@ class TestParseDescriptionType(unittest.TestCase):
         self.assertEqual(size, 12)
         self.assertEqual(got_scale, VECTOR_ELEM_FLOAT32)
         self.assertEqual(remaining, b'')
+
+
+class TestParseVariant(unittest.TestCase):
+
+    def test_int_types(self):
+        # int1
+        payload = bytes([INT1TYPE, 0, 42])
+        v, rem = _parse_variant(payload + b'\xAA', len(payload))
+        self.assertEqual(v, 42)
+        self.assertEqual(rem, b'\xAA')
+
+        # int8
+        payload = bytes([INT8TYPE, 0]) + struct.pack('<q', 1234567890123)
+        v, rem = _parse_variant(payload + b'\xAA', len(payload))
+        self.assertEqual(v, 1234567890123)
+        self.assertEqual(rem, b'\xAA')
+
+    def test_bit_type(self):
+        payload = bytes([BITTYPE, 0, 1])
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, True)
+
+    def test_float_types(self):
+        payload = bytes([FLT8TYPE, 0]) + struct.pack('<d', 3.14159)
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertAlmostEqual(v, 3.14159)
+
+    def test_guid_type(self):
+        import uuid
+        u = uuid.uuid4()
+        payload = bytes([GUIDTYPE, 0]) + u.bytes_le
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, u)
+
+    def test_date_type(self):
+        import datetime
+        d = datetime.date(2025, 1, 15)
+        # days since 0001-01-01
+        days = (datetime.datetime(2025, 1, 15) - datetime.datetime(1, 1, 1)).days
+        payload = bytes([DATENTYPE, 0]) + struct.pack('<I', days)[:3]
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, d)
+
+    def test_decimal_type(self):
+        import decimal
+        # DECIMALNTYPE: prop_bytes=2 (prec=10, scale=2), positive=1, val=12345 -> 123.45
+        val_bytes = struct.pack('<q', 12345)
+        payload = bytes([DECIMALNTYPE, 2, 10, 2, 1]) + val_bytes
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, decimal.Decimal('123.45'))
+
+    def test_varchar_and_varbinary(self):
+        # BIGVARCHRTYPE: prop_bytes=7 (5-byte collation + 2-byte maxlen), 2-byte str len + ascii
+        txt = 'hello'.encode('utf-8')
+        payload = bytes([BIGVARCHRTYPE, 7]) + b'\x00'*7 + struct.pack('<H', len(txt)) + txt
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, 'hello')
+
+        # BIGVARBINTYPE: prop_bytes=2 (2-byte maxlen), 2-byte len + bytes
+        raw = b'\x01\x02\x03\x04'
+        payload = bytes([BIGVARBINTYPE, 2]) + b'\x00\x00' + struct.pack('<H', len(raw)) + raw
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, raw)
 
 
 class TestDbapiCompliance(unittest.TestCase):
