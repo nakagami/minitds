@@ -49,7 +49,7 @@ from typing import (
     TextIO,
 )
 
-VERSION = (0, 5, 4)
+VERSION = (0, 5, 5)
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
