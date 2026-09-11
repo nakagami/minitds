@@ -39,7 +39,7 @@ from argparse import ArgumentParser
 from collections.abc import Sequence
 from typing import Any, TextIO
 
-VERSION = (0, 5, 5)
+VERSION = (0, 6, 0)
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'format'
