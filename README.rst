@@ -49,6 +49,25 @@ Execute Procedure::
    cur.callproc('something_proc', [123, 'ABC'])
    conn.close()
 
+AsyncIO::
+
+   import asyncio
+   import minitds.aio
+
+   async def main():
+       async with await minitds.aio.connect(
+           host='localhost',
+           user='sa',
+           password='secret',
+           database='database_name'
+       ) as conn:
+           async with conn.cursor() as cur:
+               await cur.execute('select foo, bar from baz')
+               async for r in cur:
+                   print(r[0], r[1])
+
+   asyncio.run(main())
+
 
 Restrictions
 ----------------
