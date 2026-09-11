@@ -10,6 +10,7 @@ from minitds.minitds import (
     _parse_plp,
     _parse_column,
     _parse_description_type,
+    _min_timezone_offset,
     BIGBINARYTYPE,
     FLT4TYPE,
     JSONTYPE,
@@ -18,6 +19,10 @@ from minitds.minitds import (
     VECTORTYPE,
     VECTOR_ELEM_FLOAT32,
     XMLTYPE,
+    STRING,
+    NUMBER,
+    DATETIME,
+    Cursor,
 )
 
 # ------------------------------------------------------------------
@@ -393,6 +398,38 @@ class TestParseDescriptionType(unittest.TestCase):
         self.assertEqual(size, 12)
         self.assertEqual(got_scale, VECTOR_ELEM_FLOAT32)
         self.assertEqual(remaining, b'')
+
+
+class TestDbapiCompliance(unittest.TestCase):
+
+    def test_dbapi_type_object(self):
+        self.assertEqual(STRING, str)
+        self.assertNotEqual(STRING, int)
+        self.assertEqual(NUMBER, int)
+        import decimal
+        self.assertEqual(NUMBER, decimal.Decimal)
+        import datetime
+        self.assertEqual(DATETIME, datetime.datetime)
+
+    def test_cursor_dbapi_methods(self):
+        class DummyConn:
+            def is_connect(self):
+                return True
+
+        cur = Cursor(DummyConn())
+        cur.setinputsizes([10])
+        cur.setoutputsize(100, 1)
+
+        cur._rows = [(1,), (2,), (3,), (4,)]
+        cur.arraysize = 2
+        rows = cur.fetchmany()
+        self.assertEqual(rows, [(1,), (2,)])
+        rows = cur.fetchmany(1)
+        self.assertEqual(rows, [(3,)])
+
+    def test_min_timezone_offset(self):
+        offset = _min_timezone_offset()
+        self.assertIsInstance(offset, int)
 
 
 if __name__ == '__main__':

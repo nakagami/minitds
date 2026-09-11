@@ -57,13 +57,13 @@ class DBAPITypeObject:
     def __init__(self, *values):
         self.values = values
 
-    def __cmp__(self, other):
-        if other in self.values:
-            return 0
-        if other < self.values:
-            return 1
-        else:
-            return -1
+    def __eq__(self, other):
+        if isinstance(other, DBAPITypeObject):
+            return self.values == other.values
+        return other in self.values
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 STRING = DBAPITypeObject(str)
@@ -239,8 +239,8 @@ _bin_version = b'\x00' + bytes(list(VERSION))
 
 def _min_timezone_offset():
     "time zone offset (minutes)"
-    now = time.time()
-    return (datetime.datetime.fromtimestamp(now) - datetime.datetime.utcfromtimestamp(now)).seconds // 60
+    offset = datetime.datetime.now().astimezone().utcoffset()
+    return int(offset.total_seconds() // 60) if offset else 0
 
 
 def _bytes_to_bint(b):
@@ -617,7 +617,7 @@ def _parse_description_type(data):
     elif type_id in (SYBVARBINARY,):
         size, data = _parse_int(data, 2)
     elif type_id in (
-        BIGCHARTYPE, BIGVARCHRTYPE, NCHARTYPE, NVARCHARTYPE, BIGVARCHRTYPE
+        BIGCHARTYPE, BIGVARCHRTYPE, NCHARTYPE, NVARCHARTYPE
     ):
         size, data = _parse_int(data, 2)
         _, data = _parse_collation(data)
@@ -1015,13 +1015,13 @@ class Cursor(object):
             self.connection.commit()
         return return_status
 
-    def nextset(self, procname, args=[]):
+    def nextset(self, procname=None, args=None):
         raise NotSupportedError()
 
-    def setinputsizes(sizes):
+    def setinputsizes(self, sizes):
         pass
 
-    def setoutputsize(size, column=None):
+    def setoutputsize(self, size, column=None):
         pass
 
     def execute(self, query, args=[]):
@@ -1069,8 +1069,10 @@ class Cursor(object):
             row = None
         return row
 
-    def fetchmany(self, size=1):
+    def fetchmany(self, size=None):
         DEBUG_OUTPUT("fetchmany()")
+        if size is None:
+            size = self.arraysize
         rs = []
         for i in range(size):
             r = self.fetchone()
@@ -1310,7 +1312,7 @@ class Connection(object):
             elif data[0] == TDS_NBCROW_TOKEN:
                 row, data = parse_nbcrow(description, self.encoding, data)
                 rows.append(row)
-            elif data[0] in (TDS_DONE_TOKEN, TDS_DONEINPROC_TOKEN, TDS_DONE_TOKEN):
+            elif data[0] in (TDS_DONE_TOKEN, TDS_DONEPROC_TOKEN, TDS_DONEINPROC_TOKEN):
                 rowcount += _bytes_to_int(data[5:13])
                 data = data[13:]
             elif data[0] == TDS_ORDER_TOKEN:
@@ -1337,18 +1339,19 @@ class Connection(object):
             _, status, spid, more_data = self._read_response_packet()
             data += more_data
 
+        self.return_status = None
         if token == TDS_TABULAR_RESULT:
             assert data[-18] == 0x79
             self.return_status = _bytes_to_int(data[-17:-13])
 
-        if data[0] == TDS_ERROR_TOKEN:
+        if data and data[0] == TDS_ERROR_TOKEN:
             raise self.parse_error(procname, data)
-        elif data[0] == TDS_TOKEN_COLMETADATA:
+        elif data and data[0] == TDS_TOKEN_COLMETADATA:
             description, data = parse_description(data)
         else:
             description = []
         rows = []
-        while data[0] in (TDS_ROW_TOKEN, TDS_NBCROW_TOKEN):
+        while data and data[0] in (TDS_ROW_TOKEN, TDS_NBCROW_TOKEN):
             if data[0] == TDS_ROW_TOKEN:
                 row, data = parse_row(description, self.encoding, data)
             elif data[0] == TDS_NBCROW_TOKEN:
@@ -1446,7 +1449,7 @@ def main(file):
     if args.query is None:
         args.query = sys.stdin.read()
 
-    conn = connect(args.host, args.database, args.user, args.password, 0, args.port, encoding=args.encoding)
+    conn = connect(args.host, args.database, args.user, args.password, port=args.port, encoding=args.encoding)
     output_results(conn, args.query, args.with_header, args.field_separator, args.null, file)
 
     conn.commit()
