@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minitds"
+dynamic = ["version"]
+description = "Yet another MS SQLServer database driver"
+readme = "README.rst"
+license = {text = "MIT"}
+authors = [
+    {name = "Hajime Nakagami", email = "nakagami@gmail.com"}
+]
+keywords = ["SQLServer"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/nakagami/minitds/"
+
+[tool.setuptools.dynamic]
+version = {attr = "minitds.__version__"}
+
+[tool.setuptools.package-data]
+minitds = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -25,8 +25,15 @@ jobs:
           MSSQL_SA_PASSWORD: Secret123
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest .
     - run: docker ps
     - run: sleep 7
     - run: docker exec ${{ job.services.mssqlserver.id }} /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Secret123 -C -Q "create database test;"
-    - run: python test_minitds.py
-    - run: python test_minitds_parsers.py
+    - run: pytest
