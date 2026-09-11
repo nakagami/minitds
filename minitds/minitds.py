@@ -34,6 +34,7 @@ import binascii
 import uuid
 import struct
 import ssl
+import json
 from argparse import ArgumentParser
 
 VERSION = (0, 5, 4)
@@ -461,7 +462,9 @@ def get_sql_batch_bytes(transaction_id, query):
     return buf
 
 
-def get_rpc_request_bytes(connection, procname, params=[]):
+def get_rpc_request_bytes(connection, procname, params=None):
+    if params is None:
+        params = []
     buf = _int_to_4bytes(22)
     buf += _int_to_4bytes(18)
     buf += _int_to_2bytes(2)
@@ -480,9 +483,26 @@ def get_rpc_request_bytes(connection, procname, params=[]):
         if p is None:
             buf += bytes([INTNTYPE, 2])
             buf += bytes([0])
+        elif isinstance(p, bool):
+            buf += bytes([BITNTYPE, 1])
+            buf += bytes([1, int(p)])
         elif isinstance(p, int):
-            buf += bytes([INTNTYPE, 4])
-            buf += bytes([4]) + p.to_bytes(4, byteorder='little')
+            if -2147483648 <= p <= 2147483647:
+                buf += bytes([INTNTYPE, 4])
+                buf += bytes([4]) + p.to_bytes(4, byteorder='little', signed=True)
+            else:
+                buf += bytes([INTNTYPE, 8])
+                buf += bytes([8]) + p.to_bytes(8, byteorder='little', signed=True)
+        elif isinstance(p, float):
+            buf += bytes([FLTNTYPE, 8])
+            buf += bytes([8]) + struct.pack('<d', p)
+        elif isinstance(p, (bytes, bytearray, memoryview)):
+            ln = len(p)
+            buf += bytes([BIGVARBINTYPE]) + ln.to_bytes(2, byteorder='little')
+            buf += ln.to_bytes(2, byteorder='little') + bytes(p)
+        elif isinstance(p, uuid.UUID):
+            buf += bytes([GUIDTYPE, 16])
+            buf += bytes([16]) + p.bytes_le
         elif isinstance(p, str):
             ln = len(p) * 2
             buf += bytes([NCHARTYPE]) + ln.to_bytes(2, byteorder='little')
@@ -1025,6 +1045,10 @@ def quote_value(value):
         return "N'%s'" % value.replace("\'", "\'\'")
     elif isinstance(value, (bytes, bytearray, memoryview)):
         return "0x%s" % binascii.hexlify(value).decode('ascii')
+    elif isinstance(value, uuid.UUID):
+        return "'%s'" % str(value)
+    elif isinstance(value, (dict, list)):
+        return "N'%s'" % json.dumps(value, ensure_ascii=False).replace("\'", "\'\'")
     elif isinstance(value, (datetime.date, datetime.time, datetime.datetime)):
         return "'%s'" % value
     elif isinstance(value, time.struct_time):
@@ -1051,7 +1075,9 @@ class Cursor(object):
     def __exit__(self, exc, value, traceback):
         self.close()
 
-    def callproc(self, procname, args=[]):
+    def callproc(self, procname, args=None):
+        if args is None:
+            args = []
         DEBUG_OUTPUT('callproc:%s' % procname)
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")
@@ -1078,7 +1104,7 @@ class Cursor(object):
     def setoutputsize(self, size, column=None):
         pass
 
-    def execute(self, query, args=[]):
+    def execute(self, query, args=None):
         DEBUG_OUTPUT("execute:%s" % (query))
         if not self.connection or not self.connection.is_connect():
             raise ProgrammingError("Lost connection")

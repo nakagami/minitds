@@ -4,6 +4,7 @@
 # These tests do NOT require a live SQL Server connection.
 ##############################################################################
 import struct
+import decimal
 import unittest
 
 from minitds.minitds import (
@@ -37,6 +38,8 @@ from minitds.minitds import (
     NUMBER,
     DATETIME,
     Cursor,
+    quote_value,
+    get_rpc_request_bytes,
 )
 
 # ------------------------------------------------------------------
@@ -475,6 +478,38 @@ class TestParseVariant(unittest.TestCase):
         payload = bytes([BIGVARBINTYPE, 2]) + b'\x00\x00' + struct.pack('<H', len(raw)) + raw
         v, _ = _parse_variant(payload, len(payload))
         self.assertEqual(v, raw)
+
+
+class TestParamsAndRPC(unittest.TestCase):
+
+    def test_quote_value(self):
+        import uuid
+        u = uuid.UUID('12345678-1234-5678-1234-567812345678')
+        self.assertEqual(quote_value(u), "'12345678-1234-5678-1234-567812345678'")
+
+        self.assertEqual(quote_value(True), "1")
+        self.assertEqual(quote_value(False), "0")
+        self.assertEqual(quote_value(None), "NULL")
+        self.assertEqual(quote_value("O'Reilly"), "N'O''Reilly'")
+        self.assertEqual(quote_value(b'\x01\x02'), "0x0102")
+
+        # JSON (dict / list)
+        self.assertEqual(quote_value({"a": 1}), "N'{\"a\": 1}'")
+        self.assertEqual(quote_value([1.0, 2.0]), "N'[1.0, 2.0]'")
+
+    def test_get_rpc_request_bytes(self):
+        import uuid
+        class DummyConn:
+            transaction_id = None
+            lcid = 1033
+
+        conn = DummyConn()
+        u = uuid.uuid4()
+        # RPC packing with various types
+        params = [None, True, False, 123, 12345678901234, 3.14, b'\x01\x02', u, 'hello', decimal.Decimal('10.5')]
+        req_bytes = get_rpc_request_bytes(conn, 'my_proc', params)
+        self.assertIsInstance(req_bytes, bytes)
+        self.assertTrue(len(req_bytes) > 0)
 
 
 class TestDbapiCompliance(unittest.TestCase):
