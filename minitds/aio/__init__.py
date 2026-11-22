@@ -24,7 +24,7 @@
 import asyncio
 import ssl
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from minitds.minitds import (
     BUFSIZE,
@@ -206,7 +206,13 @@ class AsyncConnection:
     async def _do_ssl_handshake(self):
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
-        sslobj = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2).wrap_bio(incoming, outgoing, False)
+        context = self.ssl_context or ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+        sslobj = context.wrap_bio(
+            incoming,
+            outgoing,
+            False,
+            server_hostname=self.host,
+        )
 
         while True:
             try:
@@ -233,9 +239,9 @@ class AsyncConnection:
         port: int,
         lcid: int,
         encoding: str,
-        use_ssl: bool | str | None,
-        ssl_context: ssl.SSLContext | None,
-        timeout: float | None
+        encryption: Literal['off', 'request', 'require', 'strict'],
+        timeout: float | None,
+        ssl_context: ssl.SSLContext | None = None
     ) -> None:
         self.user = user
         self.password = password
@@ -246,7 +252,7 @@ class AsyncConnection:
         self.port = port
         self.lcid = lcid
         self.encoding = encoding
-        self.use_ssl = use_ssl
+        self.encryption = encryption
         self.ssl_context = ssl_context
         self.timeout = timeout
         self.autocommit = autocommit
@@ -268,7 +274,7 @@ class AsyncConnection:
         if any([ord(c) > 127 for c in self.password]):
             raise DatabaseError("Invalid password")
 
-        if self.use_ssl == 'strict':
+        if self.encryption == 'strict':
             context = self.ssl_context or ssl.create_default_context()
             coro = asyncio.open_connection(
                 self.host,
@@ -283,10 +289,12 @@ class AsyncConnection:
         else:
             self.reader, self.writer = await coro
 
-        if self.use_ssl != 'strict':
-            await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
+        if self.encryption != 'strict':
+            await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
             _, _, _, body = await self._read_response_packet()
 
+            if self.encryption == 'require' and body[32] != 1:
+                raise OperationalError("TLS encryption is required")
             if body[32] == 1:
                 self.sslobj, self.incoming, self.outgoing = await self._do_ssl_handshake()
         await self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
@@ -547,17 +555,19 @@ async def connect(
     port: int = 1433,
     lcid: int = 1033,
     encoding: str = 'utf8',
-    use_ssl: bool | str | None = None,
-    ssl_context: ssl.SSLContext | None = None,
-    timeout: float | None = None
+    encryption: Literal['off', 'request', 'require', 'strict'] = 'request',
+    timeout: float | None = None,
+    ssl_context: ssl.SSLContext | None = None
 ) -> AsyncConnection:
     DEBUG_OUTPUT('aio.connect():{}:{}:{}'.format(host, database, autocommit))
-    if use_ssl not in (None, True, False, 'strict'):
-        raise ValueError("use_ssl must be True, False, None, or 'strict'")
+    if encryption not in ('off', 'request', 'require', 'strict'):
+        raise ValueError(
+            "encryption must be 'off', 'request', 'require', or 'strict'"
+        )
     conn = AsyncConnection(
         user, password, database, host, instance_name,
         isolation_level, autocommit, port, lcid, encoding,
-        use_ssl, ssl_context, timeout
+        encryption, timeout, ssl_context
     )
     await conn._initialize()
     return conn

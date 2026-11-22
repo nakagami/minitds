@@ -75,12 +75,16 @@ TDS 8.0 strict encryption::
        user='sa',
        password='secret',
        database='database_name',
-       use_ssl='strict',
+       encryption='strict',
    )
 
 This requires SQL Server to support TDS 8.0 strict encryption and verifies the
 server certificate using the system trust store. To use a custom trust store,
-pass an ``ssl.SSLContext`` as ``ssl_context``.
+pass an ``ssl.SSLContext`` as ``ssl_context``. Supported encryption modes are
+``off``, ``request``, ``require``, and ``strict``. These match pymssql's
+encryption terminology, with ``strict`` corresponding to the Microsoft
+ODBC/Python driver's TDS 8.0 ``Encrypt=Strict`` mode. The default is
+``request``.
 
 
 Restrictions

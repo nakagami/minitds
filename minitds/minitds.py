@@ -37,7 +37,7 @@ import ssl
 import json
 from argparse import ArgumentParser
 from collections.abc import Sequence
-from typing import Any, TextIO
+from typing import Any, Literal, TextIO
 
 VERSION = (0, 6, 0)
 apilevel = '2.0'
@@ -303,7 +303,10 @@ def _convert_date(b: bytes) -> datetime.date:
     return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
-def get_prelogin_bytes(use_ssl: bool | None, instance_name: str) -> bytes:
+def get_prelogin_bytes(
+    encryption: Literal['off', 'request', 'require'],
+    instance_name: str,
+) -> bytes:
     instance_name = instance_name.encode('ascii') + b'\00'
     pos = 26
     # version
@@ -327,12 +330,14 @@ def get_prelogin_bytes(use_ssl: bool | None, instance_name: str) -> bytes:
     assert len(buf) == 26
 
     buf += _bin_version + _bint_to_2bytes(0)
-    if use_ssl is None:
-        buf += b'\x03'  # ENCRYPT_REQ
-    elif use_ssl:
-        buf += b'\x01'  # ENCRYPT_ON
-    else:
-        buf += b'\x02'  # ENCRYPT_NOT_SUP
+    encryption_flags = {
+        'off': b'\x02',      # ENCRYPT_NOT_SUP
+        'request': b'\x03',  # ENCRYPT_REQ
+        'require': b'\x01',  # ENCRYPT_ON
+    }
+    if encryption not in encryption_flags:
+        raise ValueError(f"invalid encryption mode: {encryption!r}")
+    buf += encryption_flags[encryption]
 
     buf += instance_name
     buf += _bint_to_4bytes(os.getpid())   # thread id
@@ -1194,7 +1199,13 @@ class Connection(object):
     def _do_ssl_handshake(self):
         incoming = ssl.MemoryBIO()
         outgoing = ssl.MemoryBIO()
-        sslobj = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2).wrap_bio(incoming, outgoing, False)
+        context = self.ssl_context or ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+        sslobj = context.wrap_bio(
+            incoming,
+            outgoing,
+            False,
+            server_hostname=self.host,
+        )
 
         # do_handshake()
         while True:
@@ -1222,9 +1233,9 @@ class Connection(object):
         port: int,
         lcid: int,
         encoding: str,
-        use_ssl: bool | str | None,
-        ssl_context: ssl.SSLContext | None,
-        timeout: float | None
+        encryption: Literal['off', 'request', 'require', 'strict'],
+        timeout: float | None,
+        ssl_context: ssl.SSLContext | None = None
     ) -> None:
         self.user = user
         self.password = password
@@ -1235,7 +1246,8 @@ class Connection(object):
         self.port = port
         self.lcid = lcid
         self.encoding = encoding
-        self.use_ssl = use_ssl
+        self.encryption = encryption
+        self.ssl_context = ssl_context
         self.timeout = timeout
         self.autocommit = autocommit
         self._packet_id: int = 0
@@ -1248,7 +1260,7 @@ class Connection(object):
         self.outgoing: ssl.MemoryBIO | None = None
         self.return_status: int | None = None
 
-        if use_ssl == 'strict':
+        if encryption == 'strict':
             context = ssl_context or ssl.create_default_context()
             raw_sock = socket.create_connection(
                 (self.host, self.port),
@@ -1266,10 +1278,12 @@ class Connection(object):
         if any([ord(c) > 127 for c in password]):
             raise DatabaseError("Invalid password")
 
-        if self.use_ssl != 'strict':
-            self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
+        if self.encryption != 'strict':
+            self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
             _, _, _, body = self._read_response_packet()
 
+            if self.encryption == 'require' and body[32] != 1:
+                raise OperationalError("TLS encryption is required")
             if body[32] == 1:
                 self.sslobj, self.incoming, self.outgoing = self._do_ssl_handshake()
         self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
@@ -1526,16 +1540,18 @@ def connect(
     port: int = 1433,
     lcid: int = 1033,
     encoding: str = 'utf8',
-    use_ssl: bool | str | None = None,
-    ssl_context: ssl.SSLContext | None = None,
-    timeout: float | None = None
+    encryption: Literal['off', 'request', 'require', 'strict'] = 'request',
+    timeout: float | None = None,
+    ssl_context: ssl.SSLContext | None = None
 ) -> Connection:
     DEBUG_OUTPUT('connect():{}:{}:{}'.format(host, database, autocommit))
-    if use_ssl not in (None, True, False, 'strict'):
-        raise ValueError("use_ssl must be True, False, None, or 'strict'")
+    if encryption not in ('off', 'request', 'require', 'strict'):
+        raise ValueError(
+            "encryption must be 'off', 'request', 'require', or 'strict'"
+        )
     return Connection(
         user, password, database, host, instance_name, isolation_level,
-        autocommit, port, lcid, encoding, use_ssl, ssl_context, timeout
+        autocommit, port, lcid, encoding, encryption, timeout, ssl_context
     )
 
 
