@@ -33,6 +33,8 @@ from minitds.minitds import (
     DATENTYPE,
     TIMENTYPE,
     DATETIME2NTYPE,
+    DATETIMEOFFSETNTYPE,
+    DATETIM4TYPE,
     DECIMALNTYPE,
     BIGVARCHRTYPE,
     BIGVARBINTYPE,
@@ -43,6 +45,7 @@ from minitds.minitds import (
     Connection,
     OperationalError,
     TDS_LOGIN,
+    TDS_PRELOGIN,
     connect,
     quote_value,
     get_prelogin_bytes,
@@ -465,6 +468,49 @@ class TestParseVariant(unittest.TestCase):
         v, _ = _parse_variant(payload, len(payload))
         self.assertEqual(v, d)
 
+    def test_datetimeoffset_type_preserves_offset(self):
+        import datetime
+
+        local = datetime.datetime(2025, 1, 15, 12, 34, 56, 123456)
+        days = (local.date() - datetime.date(1, 1, 1)).days
+        ticks = (
+            ((local.hour * 60 + local.minute) * 60 + local.second) * 10_000_000
+            + local.microsecond * 10
+        )
+        raw = (
+            ticks.to_bytes(5, byteorder='little')
+            + days.to_bytes(3, byteorder='little')
+            + (9 * 60).to_bytes(2, byteorder='little', signed=True)
+        )
+
+        expected = local.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=9)))
+        payload = bytes([DATETIMEOFFSETNTYPE, 1, 7]) + raw
+        v, _ = _parse_variant(payload, len(payload))
+        self.assertEqual(v, expected)
+
+        v, remaining = _parse_column(
+            'value', DATETIMEOFFSETNTYPE, 0, 7, 0, 'utf8',
+            bytes([len(raw)]) + raw + b'\xAA',
+        )
+        self.assertEqual(v, expected)
+        self.assertEqual(remaining, b'\xAA')
+
+    def test_smalldatetime_uses_minute_ticks(self):
+        import datetime
+
+        raw = (0).to_bytes(2, byteorder='little') + (1439).to_bytes(2, byteorder='little')
+        v, remaining = _parse_column(
+            'value', DATETIM4TYPE, 4, -1, -1, 'utf8', raw + b'\xAA',
+        )
+        self.assertEqual(v, datetime.datetime(1900, 1, 1, 23, 59))
+        self.assertEqual(remaining, b'\xAA')
+
+        raw = (65535).to_bytes(2, byteorder='little') + (0).to_bytes(2, byteorder='little')
+        v, _ = _parse_column(
+            'value', DATETIM4TYPE, 4, -1, -1, 'utf8', raw,
+        )
+        self.assertEqual(v, datetime.datetime(2079, 6, 6))
+
     def test_decimal_type(self):
         import decimal
         # DECIMALNTYPE: prop_bytes=2 (prec=10, scale=2), positive=1, val=12345 -> 123.45
@@ -550,7 +596,7 @@ class TestDbapiCompliance(unittest.TestCase):
         offset = _min_timezone_offset()
         self.assertIsInstance(offset, int)
 
-    def test_strict_tls_skips_prelogin(self):
+    def test_strict_tls_sends_prelogin_after_handshake(self):
         raw_sock = mock.Mock()
         tls_sock = mock.Mock()
         ssl_context = mock.Mock()
@@ -572,14 +618,17 @@ class TestDbapiCompliance(unittest.TestCase):
             raw_sock,
             server_hostname='sql.example.com',
         )
-        self.assertEqual(send_message.call_count, 1)
-        self.assertEqual(send_message.call_args.args[0], TDS_LOGIN)
+        self.assertEqual(
+            [call.args[0] for call in send_message.call_args_list],
+            [TDS_PRELOGIN, TDS_LOGIN],
+        )
         conn.close()
 
     def test_prelogin_encryption_modes(self):
         self.assertEqual(get_prelogin_bytes('off', 'MSSQLServer')[32], 2)
         self.assertEqual(get_prelogin_bytes('request', 'MSSQLServer')[32], 3)
         self.assertEqual(get_prelogin_bytes('require', 'MSSQLServer')[32], 1)
+        self.assertEqual(get_prelogin_bytes('strict', 'MSSQLServer')[32], 1)
 
     def test_invalid_encryption_mode_is_rejected(self):
         for encryption in (None, True, False, 'yes', 'Strict'):

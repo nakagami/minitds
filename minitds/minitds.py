@@ -133,17 +133,6 @@ class NotSupportedError(DatabaseError):
         DatabaseError.__init__(self, 'NotSupportedError')
 
 
-class UTC(datetime.tzinfo):
-    def utcoffset(self, dt):
-        return datetime.timedelta(0)
-
-    def tzname(self, dt):
-        return "UTC"
-
-    def dst(self, dt):
-        return datetime.timedelta(0)
-
-
 def DEBUG_OUTPUT(s, end='\n'):
     # print(s, file=sys.stderr, end=end)
     pass
@@ -304,7 +293,7 @@ def _convert_date(b: bytes) -> datetime.date:
 
 
 def get_prelogin_bytes(
-    encryption: Literal['off', 'request', 'require'],
+    encryption: Literal['off', 'request', 'require', 'strict'],
     instance_name: str,
 ) -> bytes:
     instance_name = instance_name.encode('ascii') + b'\00'
@@ -334,6 +323,7 @@ def get_prelogin_bytes(
         'off': b'\x02',      # ENCRYPT_NOT_SUP
         'request': b'\x03',  # ENCRYPT_REQ
         'require': b'\x01',  # ENCRYPT_ON
+        'strict': b'\x01',   # Ignored in TDS 8.0, where TLS is already active
     }
     if encryption not in encryption_flags:
         raise ValueError(f"invalid encryption mode: {encryption!r}")
@@ -617,7 +607,9 @@ def _parse_variant(data: bytes, ln: int, encoding: str = 'utf-8') -> tuple[Any, 
         t = _convert_time(data2[:t_len], scale)
         d = _convert_date(data2[t_len:t_len+3])
         tz = _bytes_to_int(data2[t_len+3:t_len+5])
-        v = (datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz)).replace(tzinfo=UTC())
+        v = datetime.datetime.combine(d, t).replace(
+            tzinfo=datetime.timezone(datetime.timedelta(minutes=tz))
+        )
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         scale = prop[1] if len(prop) > 1 else 0
         positive, data2 = _parse_byte(data2)
@@ -940,7 +932,11 @@ def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int
             raw, data = data[:ln], data[ln:]
             n = ln // 4
             v = list(struct.unpack('<' + 'f' * n, raw))
-    elif type_id in (DATETIM4TYPE, DATETIMETYPE,):
+    elif type_id in (DATETIM4TYPE,):
+        d, data = _parse_uint(data, 2)
+        m, data = _parse_uint(data, 2)
+        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, minutes=m)
+    elif type_id in (DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
         ms = t % 300 * 10 // 3
@@ -978,8 +974,9 @@ def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int
             d = _convert_date(d)
             tz_offset, data = data[:2], data[2:]
             tz_offset = _bytes_to_int(tz_offset)
-            v = datetime.datetime.combine(d, t) + datetime.timedelta(minutes=_min_timezone_offset()+tz_offset)
-            v = v.replace(tzinfo=UTC())
+            v = datetime.datetime.combine(d, t).replace(
+                tzinfo=datetime.timezone(datetime.timedelta(minutes=tz_offset))
+            )
     elif type_id in (DATENTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:
@@ -1278,10 +1275,9 @@ class Connection(object):
         if any([ord(c) > 127 for c in password]):
             raise DatabaseError("Invalid password")
 
+        self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
+        _, _, _, body = self._read_response_packet()
         if self.encryption != 'strict':
-            self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
-            _, _, _, body = self._read_response_packet()
-
             if self.encryption == 'require' and body[32] != 1:
                 raise OperationalError("TLS encryption is required")
             if body[32] == 1:

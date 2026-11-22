@@ -289,10 +289,9 @@ class AsyncConnection:
         else:
             self.reader, self.writer = await coro
 
+        await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
+        _, _, _, body = await self._read_response_packet()
         if self.encryption != 'strict':
-            await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.encryption, self.instance_name))
-            _, _, _, body = await self._read_response_packet()
-
             if self.encryption == 'require' and body[32] != 1:
                 raise OperationalError("TLS encryption is required")
             if body[32] == 1:

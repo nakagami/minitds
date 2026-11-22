@@ -144,6 +144,39 @@ class TestAsyncPacketHandling(unittest.IsolatedAsyncioTestCase):
             'sql.example.com',
         )
 
+    async def test_strict_tls_sends_prelogin_after_handshake(self):
+        from minitds.aio import AsyncConnection
+        from minitds.minitds import TDS_LOGIN, TDS_PRELOGIN
+
+        reader = mock.Mock()
+        writer = mock.Mock()
+        ssl_context = mock.Mock()
+        conn = AsyncConnection(
+            'sa', 'Secret123', 'test', 'sql.example.com', 'MSSQLServer',
+            2, False, 1433, 1033, 'utf8', 'strict', 5.0, ssl_context,
+        )
+        with mock.patch(
+            'minitds.aio.asyncio.open_connection',
+            new=mock.AsyncMock(return_value=(reader, writer)),
+        ) as open_connection, \
+             mock.patch.object(conn, '_send_message', new=mock.AsyncMock()) as send_message, \
+             mock.patch.object(
+                 conn, '_read_response_packet',
+                 new=mock.AsyncMock(return_value=(TDS_PRELOGIN, 0, 0, b'')),
+             ):
+            await conn._initialize()
+
+        open_connection.assert_awaited_once_with(
+            'sql.example.com',
+            1433,
+            ssl=ssl_context,
+            server_hostname='sql.example.com',
+        )
+        self.assertEqual(
+            [call.args[0] for call in send_message.call_args_list],
+            [TDS_PRELOGIN, TDS_LOGIN],
+        )
+
     async def test_encryption_positional_argument_is_consistent(self):
         connection = mock.Mock()
         connection._initialize = mock.AsyncMock()
