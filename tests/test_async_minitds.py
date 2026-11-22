@@ -26,7 +26,9 @@ import os
 import unittest
 import datetime
 import decimal
+import ssl
 import uuid
+from unittest import mock
 import minitds
 import minitds.aio
 from minitds.aio import AsyncCursor
@@ -99,7 +101,8 @@ class TestAsyncPacketHandling(unittest.IsolatedAsyncioTestCase):
             user='user', password='password', database='db',
             host='127.0.0.1', instance_name='MSSQLServer',
             isolation_level=2, autocommit=False, port=port,
-            lcid=1033, encoding='utf8', use_ssl=False, timeout=5.0
+            lcid=1033, encoding='utf8', encryption='off',
+            ssl_context=None, timeout=5.0
         )
         conn.reader, conn.writer = await asyncio.open_connection('127.0.0.1', port)
 
@@ -115,6 +118,89 @@ class TestAsyncPacketHandling(unittest.IsolatedAsyncioTestCase):
         await conn.close()
         server.close()
         await server.wait_closed()
+
+    async def test_ssl_context_is_used_for_prelogin_tls(self):
+        from minitds.aio import AsyncConnection
+        from minitds.minitds import TDS_PRELOGIN
+
+        ssl_context = mock.Mock()
+        ssl_object = mock.Mock()
+        ssl_context.wrap_bio.return_value = ssl_object
+        ssl_object.do_handshake.side_effect = [ssl.SSLWantReadError(), None]
+
+        conn = object.__new__(AsyncConnection)
+        conn.host = 'sql.example.com'
+        conn.ssl_context = ssl_context
+        conn._send_message = mock.AsyncMock()
+        conn._read_response_packet = mock.AsyncMock(
+            return_value=(TDS_PRELOGIN, 0, 0, b''),
+        )
+
+        await conn._do_ssl_handshake()
+
+        ssl_context.wrap_bio.assert_called_once()
+        self.assertEqual(
+            ssl_context.wrap_bio.call_args.kwargs['server_hostname'],
+            'sql.example.com',
+        )
+
+    async def test_encryption_positional_argument_is_consistent(self):
+        connection = mock.Mock()
+        connection._initialize = mock.AsyncMock()
+        with mock.patch(
+            'minitds.aio.AsyncConnection',
+            return_value=connection,
+        ) as connection_class:
+            await minitds.aio.connect(
+                'sql.example.com', 'test', 'sa', 'Secret123',
+                'MSSQLServer', 2, False, 1433, 1033, 'utf8',
+                'require', 5.0,
+            )
+
+        self.assertEqual(
+            connection_class.call_args.args[-3:],
+            ('require', 5.0, None),
+        )
+
+    async def test_invalid_encryption_mode_is_rejected(self):
+        for encryption in (None, True, False, 'yes', 'Strict'):
+            with self.subTest(encryption=encryption):
+                with self.assertRaises(ValueError):
+                    await minitds.aio.connect(
+                        'sql.example.com', 'test', 'sa', 'Secret123',
+                        encryption=encryption,
+                    )
+
+    async def test_require_rejects_unencrypted_server_response(self):
+        from minitds.aio import AsyncConnection
+
+        conn = AsyncConnection(
+            user='sa',
+            password='Secret123',
+            database='test',
+            host='sql.example.com',
+            instance_name='MSSQLServer',
+            isolation_level=2,
+            autocommit=False,
+            port=1433,
+            lcid=1033,
+            encoding='utf8',
+            encryption='require',
+            timeout=None,
+        )
+        conn._send_message = mock.AsyncMock()
+        conn._read_response_packet = mock.AsyncMock(
+            return_value=(4, 0, 0, b'\x00' * 33),
+        )
+
+        with mock.patch(
+            'minitds.aio.asyncio.open_connection',
+            new=mock.AsyncMock(return_value=(mock.Mock(), mock.Mock())),
+        ):
+            with self.assertRaises(minitds.OperationalError):
+                await conn._initialize()
+
+        conn._send_message.assert_awaited_once()
 
 
 class TestAsyncMiniTds(unittest.IsolatedAsyncioTestCase):

@@ -5,7 +5,9 @@
 ##############################################################################
 import struct
 import decimal
+import ssl
 import unittest
+from unittest import mock
 
 from minitds.minitds import (
     _parse_plp,
@@ -38,7 +40,12 @@ from minitds.minitds import (
     NUMBER,
     DATETIME,
     Cursor,
+    Connection,
+    OperationalError,
+    TDS_LOGIN,
+    connect,
     quote_value,
+    get_prelogin_bytes,
     get_rpc_request_bytes,
 )
 
@@ -542,6 +549,105 @@ class TestDbapiCompliance(unittest.TestCase):
     def test_min_timezone_offset(self):
         offset = _min_timezone_offset()
         self.assertIsInstance(offset, int)
+
+    def test_strict_tls_skips_prelogin(self):
+        raw_sock = mock.Mock()
+        tls_sock = mock.Mock()
+        ssl_context = mock.Mock()
+        ssl_context.wrap_socket.return_value = tls_sock
+
+        with mock.patch('minitds.minitds.socket.create_connection', return_value=raw_sock) as create_connection, \
+             mock.patch.object(Connection, '_send_message') as send_message, \
+             mock.patch.object(Connection, '_read_response_packet', return_value=(TDS_LOGIN, 0, 0, b'')):
+            conn = Connection(
+                'sa', 'Secret123', 'test', 'sql.example.com', 'MSSQLServer',
+                2, False, 1433, 1033, 'utf8', 'strict', 5.0, ssl_context,
+            )
+
+        create_connection.assert_called_once_with(
+            ('sql.example.com', 1433),
+            timeout=5.0,
+        )
+        ssl_context.wrap_socket.assert_called_once_with(
+            raw_sock,
+            server_hostname='sql.example.com',
+        )
+        self.assertEqual(send_message.call_count, 1)
+        self.assertEqual(send_message.call_args.args[0], TDS_LOGIN)
+        conn.close()
+
+    def test_prelogin_encryption_modes(self):
+        self.assertEqual(get_prelogin_bytes('off', 'MSSQLServer')[32], 2)
+        self.assertEqual(get_prelogin_bytes('request', 'MSSQLServer')[32], 3)
+        self.assertEqual(get_prelogin_bytes('require', 'MSSQLServer')[32], 1)
+
+    def test_invalid_encryption_mode_is_rejected(self):
+        for encryption in (None, True, False, 'yes', 'Strict'):
+            with self.subTest(encryption=encryption):
+                with self.assertRaises(ValueError):
+                    connect(
+                        'sql.example.com', 'test', 'sa', 'Secret123',
+                        encryption=encryption,
+                    )
+
+    def test_require_rejects_unencrypted_server_response(self):
+        prelogin_response = b'\x00' * 32 + b'\x00'
+        sock = mock.Mock()
+        with mock.patch(
+            'minitds.minitds.socket.socket',
+            return_value=sock,
+        ), mock.patch.object(
+            Connection,
+            '_send_message',
+        ) as send_message, mock.patch.object(
+            Connection,
+            '_read_response_packet',
+            return_value=(TDS_LOGIN, 0, 0, prelogin_response),
+        ):
+            with self.assertRaises(OperationalError):
+                Connection(
+                    'sa', 'Secret123', 'test', 'sql.example.com',
+                    'MSSQLServer', 2, False, 1433, 1033, 'utf8',
+                    'require', 5.0,
+                )
+
+        self.assertEqual(send_message.call_count, 1)
+
+    def test_ssl_context_is_used_for_prelogin_tls(self):
+        ssl_context = mock.Mock()
+        ssl_object = mock.Mock()
+        ssl_context.wrap_bio.return_value = ssl_object
+        conn = object.__new__(Connection)
+        conn.host = 'sql.example.com'
+        conn.ssl_context = ssl_context
+        conn.sock = None
+        conn._send_message = mock.Mock()
+        conn._read_response_packet = mock.Mock(
+            return_value=(TDS_LOGIN, 0, 0, b''),
+        )
+        ssl_object.do_handshake.side_effect = ssl.SSLWantWriteError
+
+        with self.assertRaises(ssl.SSLWantWriteError):
+            conn._do_ssl_handshake()
+
+        ssl_context.wrap_bio.assert_called_once()
+        self.assertEqual(
+            ssl_context.wrap_bio.call_args.kwargs['server_hostname'],
+            'sql.example.com',
+        )
+
+    def test_encryption_positional_argument_is_consistent(self):
+        with mock.patch('minitds.minitds.Connection') as connection:
+            connect(
+                'sql.example.com', 'test', 'sa', 'Secret123',
+                'MSSQLServer', 2, False, 1433, 1033, 'utf8',
+                'require', 5.0,
+            )
+
+        self.assertEqual(
+            connection.call_args.args[-3:],
+            ('require', 5.0, None),
+        )
 
 
 if __name__ == '__main__':
