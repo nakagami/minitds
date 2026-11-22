@@ -6,6 +6,7 @@
 import struct
 import decimal
 import unittest
+from unittest import mock
 
 from minitds.minitds import (
     _parse_plp,
@@ -38,6 +39,8 @@ from minitds.minitds import (
     NUMBER,
     DATETIME,
     Cursor,
+    Connection,
+    TDS_LOGIN,
     quote_value,
     get_rpc_request_bytes,
 )
@@ -542,6 +545,32 @@ class TestDbapiCompliance(unittest.TestCase):
     def test_min_timezone_offset(self):
         offset = _min_timezone_offset()
         self.assertIsInstance(offset, int)
+
+    def test_strict_tls_skips_prelogin(self):
+        raw_sock = mock.Mock()
+        tls_sock = mock.Mock()
+        ssl_context = mock.Mock()
+        ssl_context.wrap_socket.return_value = tls_sock
+
+        with mock.patch('minitds.minitds.socket.create_connection', return_value=raw_sock) as create_connection, \
+             mock.patch.object(Connection, '_send_message') as send_message, \
+             mock.patch.object(Connection, '_read_response_packet', return_value=(TDS_LOGIN, 0, 0, b'')):
+            conn = Connection(
+                'sa', 'Secret123', 'test', 'sql.example.com', 'MSSQLServer',
+                2, False, 1433, 1033, 'utf8', 'strict', ssl_context, 5.0,
+            )
+
+        create_connection.assert_called_once_with(
+            ('sql.example.com', 1433),
+            timeout=5.0,
+        )
+        ssl_context.wrap_socket.assert_called_once_with(
+            raw_sock,
+            server_hostname='sql.example.com',
+        )
+        self.assertEqual(send_message.call_count, 1)
+        self.assertEqual(send_message.call_args.args[0], TDS_LOGIN)
+        conn.close()
 
 
 if __name__ == '__main__':

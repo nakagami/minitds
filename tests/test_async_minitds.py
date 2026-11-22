@@ -99,7 +99,8 @@ class TestAsyncPacketHandling(unittest.IsolatedAsyncioTestCase):
             user='user', password='password', database='db',
             host='127.0.0.1', instance_name='MSSQLServer',
             isolation_level=2, autocommit=False, port=port,
-            lcid=1033, encoding='utf8', use_ssl=False, timeout=5.0
+            lcid=1033, encoding='utf8', use_ssl=False,
+            ssl_context=None, timeout=5.0
         )
         conn.reader, conn.writer = await asyncio.open_connection('127.0.0.1', port)
 

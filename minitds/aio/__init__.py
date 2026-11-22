@@ -233,7 +233,8 @@ class AsyncConnection:
         port: int,
         lcid: int,
         encoding: str,
-        use_ssl: bool | None,
+        use_ssl: bool | str | None,
+        ssl_context: ssl.SSLContext | None,
         timeout: float | None
     ) -> None:
         self.user = user
@@ -246,6 +247,7 @@ class AsyncConnection:
         self.lcid = lcid
         self.encoding = encoding
         self.use_ssl = use_ssl
+        self.ssl_context = ssl_context
         self.timeout = timeout
         self.autocommit = autocommit
         self._packet_id: int = 0
@@ -266,17 +268,27 @@ class AsyncConnection:
         if any([ord(c) > 127 for c in self.password]):
             raise DatabaseError("Invalid password")
 
-        coro = asyncio.open_connection(self.host, self.port)
+        if self.use_ssl == 'strict':
+            context = self.ssl_context or ssl.create_default_context()
+            coro = asyncio.open_connection(
+                self.host,
+                self.port,
+                ssl=context,
+                server_hostname=self.host,
+            )
+        else:
+            coro = asyncio.open_connection(self.host, self.port)
         if self.timeout is not None:
             self.reader, self.writer = await asyncio.wait_for(coro, timeout=float(self.timeout))
         else:
             self.reader, self.writer = await coro
 
-        await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
-        _, _, _, body = await self._read_response_packet()
+        if self.use_ssl != 'strict':
+            await self._send_message(TDS_PRELOGIN, get_prelogin_bytes(self.use_ssl, self.instance_name))
+            _, _, _, body = await self._read_response_packet()
 
-        if body[32] == 1:
-            self.sslobj, self.incoming, self.outgoing = await self._do_ssl_handshake()
+            if body[32] == 1:
+                self.sslobj, self.incoming, self.outgoing = await self._do_ssl_handshake()
         await self._send_message(TDS_LOGIN, get_login_bytes(self.host, self.user, self.password, self.database, self.lcid))
         await self._read_response_packet()
 
@@ -535,13 +547,17 @@ async def connect(
     port: int = 1433,
     lcid: int = 1033,
     encoding: str = 'utf8',
-    use_ssl: bool | None = None,
+    use_ssl: bool | str | None = None,
+    ssl_context: ssl.SSLContext | None = None,
     timeout: float | None = None
 ) -> AsyncConnection:
     DEBUG_OUTPUT('aio.connect():{}:{}:{}'.format(host, database, autocommit))
+    if use_ssl not in (None, True, False, 'strict'):
+        raise ValueError("use_ssl must be True, False, None, or 'strict'")
     conn = AsyncConnection(
         user, password, database, host, instance_name,
-        isolation_level, autocommit, port, lcid, encoding, use_ssl, timeout
+        isolation_level, autocommit, port, lcid, encoding,
+        use_ssl, ssl_context, timeout
     )
     await conn._initialize()
     return conn
