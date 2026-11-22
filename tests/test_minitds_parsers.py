@@ -34,6 +34,8 @@ from minitds.minitds import (
     TIMENTYPE,
     DATETIME2NTYPE,
     DATETIMEOFFSETNTYPE,
+    DATETIMETYPE,
+    DATETIMNTYPE,
     DATETIM4TYPE,
     DECIMALNTYPE,
     BIGVARCHRTYPE,
@@ -472,10 +474,11 @@ class TestParseVariant(unittest.TestCase):
         import datetime
 
         local = datetime.datetime(2025, 1, 15, 12, 34, 56, 123456)
-        days = (local.date() - datetime.date(1, 1, 1)).days
+        utc = local - datetime.timedelta(hours=9)
+        days = (utc.date() - datetime.date(1, 1, 1)).days
         ticks = (
-            ((local.hour * 60 + local.minute) * 60 + local.second) * 10_000_000
-            + local.microsecond * 10
+            ((utc.hour * 60 + utc.minute) * 60 + utc.second) * 10_000_000
+            + utc.microsecond * 10
         )
         raw = (
             ticks.to_bytes(5, byteorder='little')
@@ -495,6 +498,28 @@ class TestParseVariant(unittest.TestCase):
         self.assertEqual(v, expected)
         self.assertEqual(remaining, b'\xAA')
 
+    def test_datetime_rounds_legacy_ticks_to_milliseconds(self):
+        import datetime
+
+        for tick, microsecond in ((1, 3000), (2, 7000), (298, 993000), (299, 997000)):
+            raw = (0).to_bytes(4, byteorder='little', signed=True) + tick.to_bytes(
+                4, byteorder='little', signed=True
+            )
+            expected = datetime.datetime(1900, 1, 1, microsecond=microsecond)
+            payload = bytes([DATETIMETYPE, 0]) + raw
+
+            with self.subTest(tick=tick, parser='variant'):
+                v, remaining = _parse_variant(payload + b'\xAA', len(payload))
+                self.assertEqual(v, expected)
+                self.assertEqual(remaining, b'\xAA')
+
+            with self.subTest(tick=tick, parser='column'):
+                v, remaining = _parse_column(
+                    'value', DATETIMETYPE, 8, -1, -1, 'utf8', raw + b'\xAA'
+                )
+                self.assertEqual(v, expected)
+                self.assertEqual(remaining, b'\xAA')
+
     def test_smalldatetime_uses_minute_ticks(self):
         import datetime
 
@@ -510,6 +535,34 @@ class TestParseVariant(unittest.TestCase):
             'value', DATETIM4TYPE, 4, -1, -1, 'utf8', raw,
         )
         self.assertEqual(v, datetime.datetime(2079, 6, 6))
+
+    def test_nullable_smalldatetime_uses_minute_ticks(self):
+        import datetime
+
+        raw = (0).to_bytes(2, byteorder='little') + (1439).to_bytes(2, byteorder='little')
+        v, remaining = _parse_column(
+            'value', DATETIMNTYPE, 4, -1, -1, 'utf8', b'\x04' + raw + b'\xAA',
+        )
+        self.assertEqual(v, datetime.datetime(1900, 1, 1, 23, 59))
+        self.assertEqual(remaining, b'\xAA')
+
+        raw = (65535).to_bytes(2, byteorder='little') + (0).to_bytes(2, byteorder='little')
+        v, _ = _parse_column(
+            'value', DATETIMNTYPE, 4, -1, -1, 'utf8', b'\x04' + raw,
+        )
+        self.assertEqual(v, datetime.datetime(2079, 6, 6))
+
+    def test_nullable_datetime_uses_legacy_ticks(self):
+        import datetime
+
+        raw = (0).to_bytes(4, byteorder='little', signed=True) + (299).to_bytes(
+            4, byteorder='little', signed=True
+        )
+        v, remaining = _parse_column(
+            'value', DATETIMNTYPE, 8, -1, -1, 'utf8', b'\x08' + raw + b'\xAA',
+        )
+        self.assertEqual(v, datetime.datetime(1900, 1, 1, 0, 0, 0, 997000))
+        self.assertEqual(remaining, b'\xAA')
 
     def test_decimal_type(self):
         import decimal

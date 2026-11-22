@@ -292,6 +292,26 @@ def _convert_date(b: bytes) -> datetime.date:
     return (datetime.datetime(1, 1, 1) + datetime.timedelta(days=_bytes_to_uint(b))).date()
 
 
+def _convert_datetime(days: int, ticks: int) -> datetime.datetime:
+    milliseconds = int(round(ticks % 300 * 10 / 3.0))
+    seconds = ticks // 300
+    return datetime.datetime(1900, 1, 1) + datetime.timedelta(
+        days=days, seconds=seconds, milliseconds=milliseconds
+    )
+
+
+def _convert_datetimeoffset(
+    date_value: datetime.date,
+    time_value: datetime.time,
+    offset_minutes: int,
+) -> datetime.datetime:
+    utc_value = datetime.datetime.combine(
+        date_value, time_value, datetime.timezone.utc
+    )
+    offset = datetime.timezone(datetime.timedelta(minutes=offset_minutes))
+    return utc_value.astimezone(offset)
+
+
 def get_prelogin_bytes(
     encryption: Literal['off', 'request', 'require', 'strict'],
     instance_name: str,
@@ -587,9 +607,7 @@ def _parse_variant(data: bytes, ln: int, encoding: str = 'utf-8') -> tuple[Any, 
     elif type_id in (DATETIMETYPE, ):
         d, data2 = _parse_int(data2, 4)
         t, data2 = _parse_int(data2, 4)
-        ms = t % 300 * 10 // 3
-        secs = t // 300
-        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+        v = _convert_datetime(d, t)
     elif type_id in (DATENTYPE, ):
         v = _convert_date(data2[:3])
     elif type_id in (TIMENTYPE, ):
@@ -607,9 +625,7 @@ def _parse_variant(data: bytes, ln: int, encoding: str = 'utf-8') -> tuple[Any, 
         t = _convert_time(data2[:t_len], scale)
         d = _convert_date(data2[t_len:t_len+3])
         tz = _bytes_to_int(data2[t_len+3:t_len+5])
-        v = datetime.datetime.combine(d, t).replace(
-            tzinfo=datetime.timezone(datetime.timedelta(minutes=tz))
-        )
+        v = _convert_datetimeoffset(d, t, tz)
     elif type_id in (NUMERICNTYPE, DECIMALNTYPE):
         scale = prop[1] if len(prop) > 1 else 0
         positive, data2 = _parse_byte(data2)
@@ -939,9 +955,7 @@ def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int
     elif type_id in (DATETIMETYPE,):
         d, data = _parse_int(data, size // 2)
         t, data = _parse_int(data, size // 2)
-        ms = t % 300 * 10 // 3
-        secs = t // 300
-        v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+        v = _convert_datetime(d, t)
     elif type_id in (DATETIME2NTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:
@@ -956,13 +970,18 @@ def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int
         ln, data = _parse_byte(data)
         if ln == 0:
             v = None
-        else:
-            assert ln == size
+        elif ln == 4:
+            d, data = _parse_uint(data, 2)
+            m, data = _parse_uint(data, 2)
+            v = datetime.datetime(1900, 1, 1) + datetime.timedelta(
+                days=d, minutes=m
+            )
+        elif ln == 8:
             d, data = _parse_int(data, ln//2)
             t, data = _parse_int(data, ln//2)
-            ms = t % 300 * 10 // 3
-            secs = t // 300
-            v = datetime.datetime(1900, 1, 1) + datetime.timedelta(days=d, seconds=secs, milliseconds=ms)
+            v = _convert_datetime(d, t)
+        else:
+            raise Error("Invalid DATETIMNTYPE length %d" % (ln,))
     elif type_id in (DATETIMEOFFSETNTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:
@@ -974,9 +993,7 @@ def _parse_column(name: str, type_id: int, size: int, precision: int, scale: int
             d = _convert_date(d)
             tz_offset, data = data[:2], data[2:]
             tz_offset = _bytes_to_int(tz_offset)
-            v = datetime.datetime.combine(d, t).replace(
-                tzinfo=datetime.timezone(datetime.timedelta(minutes=tz_offset))
-            )
+            v = _convert_datetimeoffset(d, t, tz_offset)
     elif type_id in (DATENTYPE, ):
         ln, data = _parse_byte(data)
         if ln == 0:
